@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_charger.gd" id="1_charger"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_charger"]
+size = Vector2(40, 40)
+
+[node name="EnemyCharger" type="Area2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_charger")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_charger")
+
+[node name="Polygon2D" type="Polygon2D" parent="."]
+color = Color(0.9, 0.4, 0.1, 1)
+polygon = PackedVector2Array(25, 0, -20, -20, -20, 20)
