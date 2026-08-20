@@ -22,6 +22,8 @@ var dash_timer: float = 0.0
 var dash_cooldown_timer: float = 0.0
 var dash_direction: Vector2 = Vector2.ZERO
 
+var elapsed_time: float = 0.0
+
 func _physics_process(delta: float) -> void:
 	# Update cooldown timers
 	if dash_cooldown_timer > 0.0:
@@ -60,6 +62,22 @@ func _process(delta: float) -> void:
 	# Dash Trigger
 	if Input.is_action_just_pressed("dash") and not is_dashing and dash_cooldown_timer <= 0.0:
 		start_dash()
+		
+	# Survival timer update
+	if current_health > 0.0:
+		elapsed_time += delta
+		update_survival_ui()
+
+func update_survival_ui() -> void:
+	var label = get_node_or_null("../../UI/SurvivalLabel")
+	if label:
+		label.text = "SURVIVAL\n" + get_formatted_time(elapsed_time)
+
+func get_formatted_time(time_in_seconds: float) -> String:
+	var minutes := int(time_in_seconds / 60.0)
+	var seconds := int(fmod(time_in_seconds, 60.0))
+	var tenths := int(fmod(time_in_seconds * 10.0, 10.0))
+	return "%02d:%02d.%d" % [minutes, seconds, tenths]
 
 func start_dash() -> void:
 	var move_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -93,5 +111,6 @@ func take_damage(amount: float) -> void:
 		die()
 
 func die() -> void:
+	print("Final survival time: ", get_formatted_time(elapsed_time))
 	print("Player defeated")
 	get_tree().call_deferred("reload_current_scene")
