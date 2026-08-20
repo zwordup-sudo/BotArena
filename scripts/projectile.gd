@@ -2,6 +2,7 @@ extends Area2D
 
 @export var speed: float = 700.0
 @export var damage: int = 25
+@export var can_be_intercepted: bool = true
 var direction: Vector2 = Vector2.RIGHT
 
 func _ready() -> void:
@@ -18,4 +19,9 @@ func _physics_process(delta: float) -> void:
 func _on_area_entered(area: Area2D) -> void:
 	if area.has_method("take_damage"):
 		area.take_damage(damage)
-	queue_free()
+		queue_free()
+		return
+	
+	if can_be_intercepted and area.get("can_be_intercepted") == true:
+		# Interception collision
+		queue_free()

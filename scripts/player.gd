@@ -3,8 +3,8 @@ extends CharacterBody2D
 @export var max_health: float = 100.0
 @onready var current_health: float = max_health
 
-@export var speed: float = 350.0
-@export var fire_rate: float = 4.0
+@export var speed: float = 320.0
+@export var fire_rate: float = 3.0
 
 @export var dash_speed: float = 1000.0
 @export var dash_duration: float = 0.14
