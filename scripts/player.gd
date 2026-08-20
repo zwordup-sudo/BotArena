@@ -4,7 +4,7 @@ extends CharacterBody2D
 @onready var current_health: float = max_health
 
 @export var speed: float = 320.0
-@export var fire_rate: float = 3.0
+@export var fire_rate: float = 2.5
 
 @export var dash_speed: float = 1000.0
 @export var dash_duration: float = 0.14
@@ -94,4 +94,4 @@ func take_damage(amount: float) -> void:
 
 func die() -> void:
 	print("Player defeated")
-	get_tree().reload_current_scene()
+	get_tree().call_deferred("reload_current_scene")

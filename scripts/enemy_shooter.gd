@@ -1,13 +1,28 @@
 extends Area2D
 
 @export var fire_rate: float = 1.0
+@export var initial_fire_delay: float = 0.0
 
 # Preload hostile projectile
 const HOSTILE_PROJECTILE = preload("res://scenes/enemy_projectile.tscn")
 
 var fire_timer: float = 0.0
+var delay_timer: float = 0.0
+var delay_complete: bool = false
+
+func _ready() -> void:
+	delay_timer = initial_fire_delay
+	delay_complete = initial_fire_delay <= 0.0
 
 func _process(delta: float) -> void:
+	if not delay_complete:
+		delay_timer -= delta
+		if delay_timer <= 0.0:
+			delay_complete = true
+			shoot()
+			fire_timer = 0.0
+		return
+		
 	fire_timer += delta
 	if fire_timer >= 1.0 / fire_rate:
 		fire_timer = 0.0

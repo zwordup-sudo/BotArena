@@ -31,5 +31,13 @@ points = PackedVector2Array(0, 0, 35, 0)
 [node name="TargetDummy" parent="Arena" unique_id=1736133533 instance=ExtResource("2_0wfyh")]
 position = Vector2(750, 324)
 
-[node name="EnemyShooter" parent="Arena" unique_id=548097193 instance=ExtResource("3_sugp2")]
+[node name="EnemyShooterA" parent="Arena" unique_id=548097193 instance=ExtResource("3_sugp2")]
 position = Vector2(320, 236)
+
+[node name="EnemyShooterB" parent="Arena" unique_id=1313960546 instance=ExtResource("3_sugp2")]
+position = Vector2(850, 150)
+initial_fire_delay = 0.33
+
+[node name="EnemyShooterC" parent="Arena" unique_id=1849216055 instance=ExtResource("3_sugp2")]
+position = Vector2(576, 500)
+initial_fire_delay = 0.66
