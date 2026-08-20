@@ -1,5 +1,8 @@
 extends CharacterBody2D
 
+@export var max_health: float = 100.0
+@onready var current_health: float = max_health
+
 @export var speed: float = 350.0
 @export var fire_rate: float = 4.0
 
@@ -82,3 +85,13 @@ func shoot() -> void:
 	var projectiles_node = get_parent().get_node_or_null("Projectiles")
 	if projectiles_node:
 		projectiles_node.add_child(proj)
+
+func take_damage(amount: float) -> void:
+	current_health = clamp(current_health - amount, 0.0, max_health)
+	print("Player remaining health: ", current_health)
+	if current_health <= 0.0:
+		die()
+
+func die() -> void:
+	print("Player defeated")
+	get_tree().reload_current_scene()

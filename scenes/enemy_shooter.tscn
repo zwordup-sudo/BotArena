@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://1w3qu7nyimvi"]
+
+[ext_resource type="Script" uid="uid://8wv1fgttrewe" path="res://scripts/enemy_shooter.gd" id="1_afvl6"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_amqcw"]
+size = Vector2(40, 40)
+
+[node name="EnemyShooter" type="Area2D" unique_id=548097193]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_afvl6")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1608352117]
+shape = SubResource("RectangleShape2D_amqcw")
+
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=747953289]
+color = Color(0.9, 0.1, 0.4, 1)
+polygon = PackedVector2Array(0, -20, 20, 0, 0, 20, -20, 0)
