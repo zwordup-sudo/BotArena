@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://jagutrk66ap5"]
+
+[ext_resource type="Script" uid="uid://ct7jcudo7h61t" path="res://scripts/target_dummy.gd" id="1_y5ib8"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0vb36"]
+size = Vector2(50, 50)
+
+[node name="TargetDummy" type="Area2D" unique_id=1736133533]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_y5ib8")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1138823988]
+shape = SubResource("RectangleShape2D_0vb36")
+
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=1224593249]
+color = Color(0.9, 0.7, 0.1, 1)
+polygon = PackedVector2Array(-25, -25, 25, -25, 25, 25, -25, 25)

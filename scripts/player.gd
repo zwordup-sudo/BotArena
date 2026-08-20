@@ -1,11 +1,14 @@
 extends CharacterBody2D
 
 @export var speed: float = 350.0
+@export var fire_rate: float = 4.0
 
 @onready var aim_pivot: Node2D = $AimPivot
 
 # Preload the projectile scene
 const PROJECTILE_SCENE = preload("res://scenes/projectile.tscn")
+
+var fire_cooldown_timer: float = 0.0
 
 func _physics_process(_delta: float) -> void:
 	# WASD Movement
@@ -13,13 +16,20 @@ func _physics_process(_delta: float) -> void:
 	velocity = direction * speed
 	move_and_slide()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Independent Mouse Aiming
 	aim_pivot.look_at(get_global_mouse_position())
 	
-	# Primary Attack
-	if Input.is_action_just_pressed("attack_primary"):
-		shoot()
+	# Cooldown tracking
+	if fire_cooldown_timer > 0.0:
+		fire_cooldown_timer -= delta
+	
+	# Primary Attack (Continuous fire)
+	if Input.is_action_pressed("attack_primary"):
+		if fire_cooldown_timer <= 0.0:
+			shoot()
+			# Reset cooldown
+			fire_cooldown_timer = 1.0 / fire_rate
 
 func shoot() -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
