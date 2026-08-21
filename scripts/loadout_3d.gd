@@ -9,13 +9,14 @@ const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
 const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
 const MELEE_TEST_ARMS = preload("res://resources/parts/arms/melee_test_arms.tres")
+const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arms.tres")
 
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
@@ -152,9 +153,18 @@ func update_build_and_preview() -> void:
 		
 		# For Melee Arc, display extra details
 		if atk_type == 1:
-			primary_atk_txt += "\nRange: " + str(atk.melee_range) + " | Arc: " + str(atk.melee_arc_degrees) + " degrees\n" + \
-				"Damage multiplier: " + str(int(atk.damage_multiplier * 100.0)) + "%\n" + \
-				"Attack rate multiplier: " + str(int(atk.attack_rate_multiplier * 100.0)) + "%"
+			primary_atk_txt += "\nRange: " + str(atk.melee_range) + " | Arc: " + str(atk.melee_arc_degrees) + " degrees"
+			if atk.get("engage_range") != null and atk.engage_range > 0.0:
+				primary_atk_txt += "\nEngage Range: " + str(atk.engage_range) + " | Engage Step: " + str(atk.engage_distance)
+			primary_atk_txt += "\nDamage multiplier: " + str(int(atk.damage_multiplier * 100.0)) + "%" + \
+				"\nAttack rate multiplier: " + str(int(atk.attack_rate_multiplier * 100.0)) + "%"
+			if atk.get("combo_multipliers") != null and atk.combo_multipliers.size() > 0:
+				primary_atk_txt += "\nCombo:"
+				for i in range(atk.combo_multipliers.size()):
+					if i == atk.combo_multipliers.size() - 1:
+						primary_atk_txt += "\n" + str(i + 1) + ". " + str(atk.combo_multipliers[i]) + "x Finisher"
+					else:
+						primary_atk_txt += "\n" + str(i + 1) + ". " + str(atk.combo_multipliers[i]) + "x"
 		
 	# Core active ability summary
 	var ability_txt = "CORE ABILITY: None"

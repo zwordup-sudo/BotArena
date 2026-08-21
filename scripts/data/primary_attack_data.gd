@@ -18,3 +18,12 @@ enum AttackType {
 @export var melee_arc_degrees: float = 0.0
 @export var damage_multiplier: float = 1.0
 @export var attack_rate_multiplier: float = 1.0
+
+# Assassin Engage configuration fields
+@export var engage_range: float = 0.0
+@export var engage_distance: float = 0.0
+@export var engage_cone_degrees: float = 0.0
+
+# Combo configuration fields
+@export var combo_multipliers: Array[float] = []
+@export var combo_reset_time: float = 0.0

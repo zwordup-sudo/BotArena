@@ -34,13 +34,14 @@ const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
 const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
 const MELEE_TEST_ARMS = preload("res://resources/parts/arms/melee_test_arms.tres")
+const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arms.tres")
 
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS]
 
 var core_idx: int = 0
@@ -109,6 +110,10 @@ var projectile_evasion_timer: float = 0.0
 
 var current_build_name: String = "BALANCED"
 
+# Combo State tracking fields
+var current_combo_index: int = 0
+var last_attack_time: float = -999.0
+
 func _ready() -> void:
 	# Load existing selection from autoload GameSession if available
 	var saved_build = GameSession.get_selected_build() if has_node("/root/GameSession") else null
@@ -143,9 +148,9 @@ func recalculate_stats() -> void:
 		
 		# Calculate temporary fire rate flat bonuses (Twin Stream) and primary attack modifiers (Melee swing rate scaling)
 		var rate_mult = 1.0
-		if bot_build.arms and bot_build.arms.get("primary_attack"):
-			var atk = bot_build.arms.primary_attack
-			if atk.get("attack_rate_multiplier") != null:
+		if bot_build.arms and bot_build.arms.primary_attack:
+			var atk = bot_build.arms.primary_attack as PrimaryAttackData
+			if atk and atk.attack_rate_multiplier != 0.0:
 				rate_mult = atk.attack_rate_multiplier
 				
 		var twin_fire_bonus = 0.0
@@ -216,6 +221,10 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	fire_cooldown_timer = 0.0
 	dash_cooldown_timer = 0.0
 	is_dashing = false
+	
+	# Reset combo states
+	current_combo_index = 0
+	last_attack_time = -999.0
 	
 	# Print stats to console output
 	var core_name = bot_build.core.display_name if (bot_build and bot_build.core) else "None"
@@ -379,13 +388,14 @@ func _process(delta: float) -> void:
 		
 	# Primary Attack - Disabled during Burst Volley, Charged Shot Charging, and Rocket Lunge
 	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging
-	if fire_allowed and bot_build and bot_build.arms and bot_build.arms.get("primary_attack"):
-		var atk = bot_build.arms.primary_attack
-		var input_pressed = Input.is_action_pressed("attack_primary") if atk.get("can_hold_to_attack") == true else Input.is_action_just_pressed("attack_primary")
-		if input_pressed:
-			if fire_cooldown_timer <= 0.0:
-				shoot()
-				fire_cooldown_timer = 1.0 / fire_rate
+	if fire_allowed and bot_build and bot_build.arms and bot_build.arms.primary_attack:
+		var atk = bot_build.arms.primary_attack as PrimaryAttackData
+		if atk:
+			var input_pressed = Input.is_action_pressed("attack_primary") if atk.can_hold_to_attack else Input.is_action_just_pressed("attack_primary")
+			if input_pressed:
+				if fire_cooldown_timer <= 0.0:
+					shoot()
+					fire_cooldown_timer = 1.0 / fire_rate
 			
 	# Update Canvas HUD
 	update_canvas_hud()
@@ -854,7 +864,7 @@ func update_canvas_hud() -> void:
 			"HP: " + str(int(current_health)) + " / " + str(int(max_health)) + "\n" +
 			"MOVE: " + str(snapped(speed, 0.1)) + "\n" +
 			"FIRE RATE: " + str(snapped(fire_rate, 0.01)) + "\n" +
-			"DAMAGE: " + str(int(projectile_damage)) + "\n" +
+			"DAMAGE: " + str(snapped(projectile_damage, 0.1)) + "\n" +
 			"DASH SPEED: " + str(snapped(dash_speed, 0.1)) + "\n" +
 			"DASH CD: " + str(snapped(dash_cooldown, 0.01)) + "\n\n" +
 			"ENERGY: " + str(int(current_energy)) + " / 100\n" +
@@ -883,12 +893,12 @@ func shoot() -> void:
 		push_warning("Primary attack failed: No arms equipped.")
 		return
 	var part_arms = bot_build.arms
-	var attack_data = part_arms.get("primary_attack")
+	var attack_data = part_arms.primary_attack as PrimaryAttackData
 	if not attack_data:
 		push_warning("Primary attack failed: No primary attack data configured.")
 		return
 		
-	var attack_type = attack_data.get("attack_type")
+	var attack_type = attack_data.attack_type
 	if attack_type == 0: # PROJECTILE
 		execute_projectile_primary(attack_data)
 	elif attack_type == 1: # MELEE_ARC
@@ -896,8 +906,8 @@ func shoot() -> void:
 	else:
 		push_warning("Primary attack failed: Unsupported attack type: " + str(attack_type))
 
-func execute_projectile_primary(attack_data: Resource) -> void:
-	var proj_scene = attack_data.get("projectile_scene")
+func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
+	var proj_scene = attack_data.projectile_scene
 	if not proj_scene:
 		push_warning("Projectile attack failed: Missing projectile scene.")
 		return
@@ -939,14 +949,53 @@ func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: floa
 	proj.damage = projectile_damage * 0.55
 	proj.speed = projectile_speed
 
-func execute_melee_arc_primary(attack_data: Resource) -> void:
-	var range_val = attack_data.get("melee_range")
-	var arc_deg = attack_data.get("melee_arc_degrees")
-	var dmg_mult = attack_data.get("damage_multiplier")
+func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
+	var range_val = attack_data.melee_range
+	var arc_deg = attack_data.melee_arc_degrees
+	var dmg_mult = attack_data.damage_multiplier
 	
-	# Create cosmetic melee sweep visual
-	create_melee_visual(range_val, arc_deg)
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
 	
+	# Check if engage properties are active
+	var engage_rng = attack_data.engage_range
+	var engage_dist = attack_data.engage_distance
+	var engage_cone = attack_data.engage_cone_degrees
+	
+	if engage_rng > 0.0 and engage_dist > 0.0:
+		# Search for potential target inside engagement range & cone
+		var space_state = get_world_3d().direct_space_state
+		var eq = PhysicsShapeQueryParameters3D.new()
+		var esph = SphereShape3D.new()
+		esph.radius = engage_rng
+		eq.shape = esph
+		eq.transform = global_transform
+		eq.exclude = [get_rid()]
+		eq.collide_with_areas = true
+		eq.collide_with_bodies = true
+		
+		var candidates = space_state.intersect_shape(eq)
+		var best_target: Node3D = null
+		var best_dist: float = 999.0
+		
+		for cand in candidates:
+			var body = cand.collider
+			if is_instance_valid(body) and body.has_method("take_damage"):
+				var diff = body.global_position - global_position
+				diff.y = 0.0
+				var d = diff.length()
+				if d <= engage_rng:
+					var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
+					if angle <= engage_cone / 2.0:
+						if d < best_dist:
+							best_dist = d
+							best_target = body
+							
+		if best_target:
+			var move_vec = aim_dir * engage_dist
+			var collision = move_and_collide(move_vec)
+			
 	# One-shot physics query including areas (enemies and target dummy are Area3Ds)
 	var space_state = get_world_3d().direct_space_state
 	var query = PhysicsShapeQueryParameters3D.new()
@@ -961,12 +1010,35 @@ func execute_melee_arc_primary(attack_data: Resource) -> void:
 	var results = space_state.intersect_shape(query)
 	var final_dmg = projectile_damage * dmg_mult
 	
-	var aim_dir = -aim_pivot.global_transform.basis.z
-	aim_dir.y = 0.0
-	aim_dir = aim_dir.normalized()
+	# Process combo indexing
+	var now = Time.get_ticks_msec() / 1000.0
+	var reset_time = attack_data.combo_reset_time
+	var combo_mults = attack_data.combo_multipliers
+	
+	if reset_time > 0.0 and combo_mults.size() > 0:
+		if now - last_attack_time > reset_time:
+			current_combo_index = 0
+		
+		var current_mult = combo_mults[current_combo_index]
+		var is_finisher = (current_combo_index == combo_mults.size() - 1)
+		
+		current_combo_index = (current_combo_index + 1) % combo_mults.size()
+		last_attack_time = now
+		
+		final_dmg = final_dmg * current_mult
+		
+		# For third hit finisher, create a brighter and slightly longer visual sweep
+		if is_finisher:
+			create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.4, 0.2, 0.7), 0.18)
+		else:
+			create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.8, 0.2, 0.3), 0.10)
+	else:
+		create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.8, 0.2, 0.3), 0.10)
 	
 	print("\n--- MELEE SWING ---")
 	print("Candidates found: ", results.size())
+	if reset_time > 0.0:
+		print("Combo index executed: ", current_combo_index, " (Multiplier: ", final_dmg / (projectile_damage * dmg_mult), ")")
 	
 	for res in results:
 		var collider = res.collider
@@ -995,6 +1067,9 @@ func execute_melee_arc_primary(attack_data: Resource) -> void:
 				print("  Damage applied: 0")
 
 func create_melee_visual(range_val: float, arc_deg: float) -> void:
+	create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.8, 0.2, 0.3), 0.12)
+
+func create_melee_visual_custom(range_val: float, arc_deg: float, color: Color, duration: float) -> void:
 	var arr_mesh = ArrayMesh.new()
 	var vertices = PackedVector3Array()
 	var indices = PackedInt32Array()
@@ -1007,11 +1082,9 @@ func create_melee_visual(range_val: float, arc_deg: float) -> void:
 	var half_arc = deg_to_rad(arc_deg / 2.0)
 	
 	for i in range(segments + 1):
-		# Interpolate angle from -half_arc to +half_arc
 		var t = float(i) / segments
 		var angle = lerp(-half_arc, half_arc, t)
 		
-		# local coordinates relative to forward vector (-Z)
 		var x = sin(angle) * range_val
 		var z = -cos(angle) * range_val
 		
@@ -1034,7 +1107,7 @@ func create_melee_visual(range_val: float, arc_deg: float) -> void:
 	mesh_instance.mesh = arr_mesh
 	
 	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.8, 0.2, 0.3)
+	mat.albedo_color = color
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -1048,8 +1121,7 @@ func create_melee_visual(range_val: float, arc_deg: float) -> void:
 		mesh_instance.global_rotation = aim_pivot.global_rotation
 		
 	var tween = create_tween()
-	# Brief lifetime: fade alpha to zero in 0.12 seconds
-	tween.tween_property(mat, "albedo_color:a", 0.0, 0.12)
+	tween.tween_property(mat, "albedo_color:a", 0.0, duration)
 	tween.tween_callback(mesh_instance.queue_free)
 
 func take_damage(amount: float) -> void:
