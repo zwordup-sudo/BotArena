@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="PrimaryAttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/primary_attack_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "basic_melee_arc"
+display_name = "Melee Arc"
+attack_type = 1
+can_hold_to_attack = true
+melee_range = 2.15
+melee_arc_degrees = 100.0
+damage_multiplier = 1.40
+attack_rate_multiplier = 0.80

@@ -8,13 +8,14 @@ const HEAVY_CORE = preload("res://resources/parts/core/heavy_core.tres")
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
 const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
+const MELEE_TEST_ARMS = preload("res://resources/parts/arms/melee_test_arms.tres")
 
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
@@ -148,6 +149,12 @@ func update_build_and_preview() -> void:
 		elif atk_type == 2:
 			type_name = "Thrust"
 		primary_atk_txt = "PRIMARY ATTACK: " + type_name
+		
+		# For Melee Arc, display extra details
+		if atk_type == 1:
+			primary_atk_txt += "\nRange: " + str(atk.melee_range) + " | Arc: " + str(atk.melee_arc_degrees) + " degrees\n" + \
+				"Damage multiplier: " + str(int(atk.damage_multiplier * 100.0)) + "%\n" + \
+				"Attack rate multiplier: " + str(int(atk.attack_rate_multiplier * 100.0)) + "%"
 		
 	# Core active ability summary
 	var ability_txt = "CORE ABILITY: None"
