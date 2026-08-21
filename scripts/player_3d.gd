@@ -2,10 +2,41 @@ extends CharacterBody3D
 
 @export var speed: float = 6.0
 
+@export var dash_speed: float = 18.0
+@export var dash_duration: float = 0.14
+@export var dash_cooldown: float = 0.80
+
 @onready var aim_pivot: Node3D = $AimPivot
 
-func _physics_process(_delta: float) -> void:
-	# WASD Movement on X/Z plane
+var is_dashing: bool = false
+var dash_timer: float = 0.0
+var dash_cooldown_timer: float = 0.0
+var dash_direction: Vector3 = Vector3.ZERO
+
+func _physics_process(delta: float) -> void:
+	# Update cooldown timers
+	if dash_cooldown_timer > 0.0:
+		dash_cooldown_timer -= delta
+		
+	if is_dashing:
+		dash_timer -= delta
+		if dash_timer <= 0.0:
+			is_dashing = false
+			# Let execution fall through to normal WASD movement in the same frame for instant transition response
+		else:
+			velocity = dash_direction * dash_speed
+			move_and_slide()
+			return # Skip normal movement
+
+	# Check for dash trigger
+	if Input.is_action_just_pressed("dash") and not is_dashing and dash_cooldown_timer <= 0.0:
+		start_dash()
+		# Run the first frame of dash movement immediately
+		velocity = dash_direction * dash_speed
+		move_and_slide()
+		return
+
+	# Normal WASD Movement
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var direction := Vector3(input_dir.x, 0.0, input_dir.y)
 	if direction.length_squared() > 0.0:
@@ -14,12 +45,27 @@ func _physics_process(_delta: float) -> void:
 	else:
 		velocity = Vector3.ZERO
 		
-	# Move using CharacterBody3D physics
 	move_and_slide()
 
 func _process(_delta: float) -> void:
 	# Independent mouse aiming
 	aim_to_mouse()
+
+func start_dash() -> void:
+	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
+	
+	if move_dir.length_squared() > 0.0:
+		dash_direction = move_dir.normalized()
+	else:
+		# Use the current aim direction (forward is -Z in local AimPivot coords)
+		var aim_dir = -aim_pivot.global_transform.basis.z
+		aim_dir.y = 0.0
+		dash_direction = aim_dir.normalized()
+		
+	is_dashing = true
+	dash_timer = dash_duration
+	dash_cooldown_timer = dash_cooldown
 
 func aim_to_mouse() -> void:
 	var camera := get_viewport().get_camera_3d()
@@ -27,11 +73,8 @@ func aim_to_mouse() -> void:
 		return
 		
 	var mouse_pos := get_viewport().get_mouse_position()
-	# Project ray from camera
 	var ray_origin := camera.project_ray_origin(mouse_pos)
 	var ray_normal := camera.project_ray_normal(mouse_pos)
-	
-	# Intersect ray with horizontal plane at Y = global_position.y
 	var target_y := global_position.y
 	
 	if not is_equal_approx(ray_normal.y, 0.0):
