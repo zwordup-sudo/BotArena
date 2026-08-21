@@ -137,6 +137,18 @@ func update_build_and_preview() -> void:
 	if calc.system_stress:
 		stress_txt = " | SYSTEM STRESS - Dash Cooldown +15%"
 		
+	# Primary attack summary
+	var primary_atk_txt = "PRIMARY ATTACK: None"
+	if current_build.arms and current_build.arms.get("primary_attack"):
+		var atk = current_build.arms.primary_attack
+		var type_name = "Projectile"
+		var atk_type = atk.attack_type
+		if atk_type == 1:
+			type_name = "Melee Arc"
+		elif atk_type == 2:
+			type_name = "Thrust"
+		primary_atk_txt = "PRIMARY ATTACK: " + type_name
+		
 	# Core active ability summary
 	var ability_txt = "CORE ABILITY: None"
 	if current_build.core and current_build.core.active_ability:
@@ -182,7 +194,8 @@ func update_build_and_preview() -> void:
 		"BUILD: " + build_name + stress_txt + "\n" +
 		"HP: " + str(int(calc.max_health)) + " | MOVE: " + str(snapped(calc.movement_speed, 0.1)) + " | FIRE: " + str(snapped(calc.fire_rate, 0.01)) + " | DMG: " + str(int(calc.projectile_damage)) + "\n" +
 		"PROJ SPD: " + str(snapped(calc.projectile_speed, 0.1)) + " | DASH SPD: " + str(snapped(calc.dash_speed, 0.1)) + " | DASH CD: " + str(snapped(calc.dash_cooldown, 0.01)) + "\n" +
-		"THEORETICAL DPS: " + str(snapped(dps, 0.1)) + "\n\n" +
+		"THEORETICAL DPS: " + str(snapped(dps, 0.1)) + "\n" +
+		primary_atk_txt + "\n\n" +
 		"POWER: " + power_txt + " | WEIGHT: " + weight_txt + " | THERMAL: " + thermal_txt + "\n\n" +
 		"ENERGY: 100 | ENERGY REGEN: 5.0 / s\n" +
 		ability_txt + "\n\n" +

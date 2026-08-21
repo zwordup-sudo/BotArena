@@ -370,12 +370,15 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("legs_ability"):
 		activate_legs_ability()
 		
-	# Primary Attack (Continuous fire) - Disabled during Burst Volley, Charged Shot Charging, and Rocket Lunge
+	# Primary Attack - Disabled during Burst Volley, Charged Shot Charging, and Rocket Lunge
 	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging
-	if Input.is_action_pressed("attack_primary") and fire_allowed:
-		if fire_cooldown_timer <= 0.0:
-			shoot()
-			fire_cooldown_timer = 1.0 / fire_rate
+	if fire_allowed and bot_build and bot_build.arms and bot_build.arms.get("primary_attack"):
+		var atk = bot_build.arms.primary_attack
+		var input_pressed = Input.is_action_pressed("attack_primary") if atk.get("can_hold_to_attack") == true else Input.is_action_just_pressed("attack_primary")
+		if input_pressed:
+			if fire_cooldown_timer <= 0.0:
+				shoot()
+				fire_cooldown_timer = 1.0 / fire_rate
 			
 	# Update Canvas HUD
 	update_canvas_hud()
@@ -869,12 +872,34 @@ func start_dash() -> void:
 	dash_cooldown_timer = dash_cooldown
 
 func shoot() -> void:
-	if is_arms_active and bot_build and bot_build.arms and bot_build.arms.active_ability.effect_type == 4: # TWIN_STREAM
-		var spread = deg_to_rad(2.5) # 5 degrees total symmetric spread
-		fire_twin_projectile(-spread)
-		fire_twin_projectile(spread)
+	if not bot_build or not bot_build.arms:
+		push_warning("Primary attack failed: No arms equipped.")
+		return
+	var part_arms = bot_build.arms
+	var attack_data = part_arms.get("primary_attack")
+	if not attack_data:
+		push_warning("Primary attack failed: No primary attack data configured.")
+		return
+		
+	var attack_type = attack_data.get("attack_type")
+	if attack_type == 0: # PROJECTILE
+		execute_projectile_primary(attack_data)
 	else:
-		var proj = PROJECTILE_SCENE.instantiate()
+		push_warning("Primary attack failed: Unsupported attack type: " + str(attack_type))
+
+func execute_projectile_primary(attack_data: Resource) -> void:
+	var proj_scene = attack_data.get("projectile_scene")
+	if not proj_scene:
+		push_warning("Projectile attack failed: Missing projectile scene.")
+		return
+		
+	# Twin Stream ability modifies the projectile pattern during its active duration
+	if is_arms_active and bot_build.arms.active_ability.effect_type == 4: # TWIN_STREAM
+		var spread = deg_to_rad(2.5) # 5 degrees total symmetric spread
+		fire_twin_projectile_from_scene(proj_scene, -spread)
+		fire_twin_projectile_from_scene(proj_scene, spread)
+	else:
+		var proj = proj_scene.instantiate()
 		var aim_dir = -aim_pivot.global_transform.basis.z
 		aim_dir.y = 0.0
 		aim_dir = aim_dir.normalized()
@@ -888,8 +913,8 @@ func shoot() -> void:
 		proj.damage = projectile_damage
 		proj.speed = projectile_speed
 
-func fire_twin_projectile(angle_offset: float) -> void:
-	var proj = PROJECTILE_SCENE.instantiate()
+func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: float) -> void:
+	var proj = proj_scene.instantiate()
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()

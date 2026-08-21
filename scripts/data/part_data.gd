@@ -23,6 +23,8 @@ enum Slot { CORE, ARMS, LEGS }
 @export var weight_cost: float = 0.0
 @export var thermal_load: float = 0.0
 
-# Active Ability (Core only)
+# Active Ability (Core, Arms, Legs)
 @export var active_ability: Resource
 
+# Primary Attack (Arms only)
+@export var primary_attack: Resource
