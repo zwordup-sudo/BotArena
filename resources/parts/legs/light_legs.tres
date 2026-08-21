@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Resource" path="res://resources/abilities/legs/light_chain_dash.tres" id="1_ability"]
+[ext_resource type="Resource" path="res://resources/abilities/legs/light_phase_blink.tres" id="1_ability"]
 [ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_partdata"]
 
 [resource]

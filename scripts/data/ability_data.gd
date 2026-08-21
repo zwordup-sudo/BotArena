@@ -8,8 +8,8 @@ enum EffectType {
 	BURST_VOLLEY,
 	SUPPRESSIVE_FIRE,
 	CHARGED_SHOT,
-	VECTOR_SHIFT,
-	CHAIN_DASH,
+	VECTOR_ANCHOR,
+	PHASE_BLINK,
 	ROCKET_LUNGE
 }
 
@@ -44,3 +44,4 @@ enum EffectType {
 @export var availability_duration: float = 0.0
 @export var lunge_duration: float = 0.0
 @export var recovery_duration: float = 0.0
+@export var blink_distance: float = 0.0

@@ -87,15 +87,11 @@ var is_burst_volley_active: bool = false
 var is_charged_shot_charging: bool = false
 var charged_shot_charge_timer: float = 0.0
 
-# Legs ability execution block parameters
-var is_vector_shifting: bool = false
-var vector_shift_timer: float = 0.0
-var vector_shift_direction: Vector3 = Vector3.ZERO
-var vector_shift_speed: float = 0.0
-
-var is_chain_dash_armed: bool = false
-var chain_dash_ready_timer: float = 0.0
-var chain_dash_triggered_this_dash: bool = false
+# Legs active ability states
+var is_vector_anchor_active: bool = false
+var vector_anchor_timer: float = 0.0
+var vector_anchor_position: Vector3 = Vector3.ZERO
+var vector_anchor_marker: Node3D = null
 
 var is_rocket_lunging: bool = false
 var rocket_lunge_timer: float = 0.0
@@ -169,11 +165,8 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	is_charged_shot_charging = false
 	charged_shot_charge_timer = 0.0
 	
-	is_vector_shifting = false
-	is_chain_dash_armed = false
-	chain_dash_ready_timer = 0.0
-	chain_dash_triggered_this_dash = false
 	is_rocket_lunging = false
+	clear_vector_anchor()
 	
 	current_energy = max_energy
 	
@@ -256,19 +249,7 @@ func _physics_process(delta: float) -> void:
 	if dash_cooldown_timer > 0.0:
 		dash_cooldown_timer -= delta
 		
-	# 1. Handle Vector Shift Movement (extremely fast reposition step)
-	if is_vector_shifting:
-		vector_shift_timer -= delta
-		if vector_shift_timer <= 0.0:
-			is_vector_shifting = false
-			is_legs_active = false
-			update_mesh_color()
-		else:
-			velocity = vector_shift_direction * vector_shift_speed
-			move_and_slide()
-			return
-
-	# 2. Handle Rocket Lunge Movement (strongly committed lunge)
+	# Handle Rocket Lunge Movement (strongly committed lunge)
 	if is_rocket_lunging:
 		rocket_lunge_timer -= delta
 		if rocket_lunge_timer <= 0.0:
@@ -280,19 +261,11 @@ func _physics_process(delta: float) -> void:
 			move_and_slide()
 			return
 
-	# 3. Handle Normal Dash (Space)
+	# Handle Normal Dash (Space)
 	if is_dashing:
 		dash_timer -= delta
 		if dash_timer <= 0.0:
 			is_dashing = false
-			
-			# Check if Chain Dash bonus dash is armed and was triggered
-			if chain_dash_triggered_this_dash:
-				dash_cooldown_timer = 0.0
-				chain_dash_triggered_this_dash = false
-				is_chain_dash_armed = false
-				chain_dash_ready_timer = 0.0
-				update_mesh_color()
 		else:
 			velocity = dash_direction * dash_speed
 			move_and_slide()
@@ -300,14 +273,12 @@ func _physics_process(delta: float) -> void:
 
 	# Check for normal dash trigger
 	if Input.is_action_just_pressed("dash") and not is_dashing and dash_cooldown_timer <= 0.0:
-		if is_chain_dash_armed:
-			chain_dash_triggered_this_dash = true
 		start_dash()
 		velocity = dash_direction * dash_speed
 		move_and_slide()
 		return
 
-	# Normal WASD Movement (Locked during Rocket Lunge and Vector Shift)
+	# Normal WASD Movement (Locked during Rocket Lunge)
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var direction := Vector3(input_dir.x, 0.0, input_dir.y)
 	if direction.length_squared() > 0.0:
@@ -348,11 +319,10 @@ func _process(delta: float) -> void:
 	# Independent Legs Ability Cooldown tracking
 	if legs_cooldown_timer > 0.0:
 		legs_cooldown_timer -= delta
-	if is_chain_dash_armed:
-		chain_dash_ready_timer -= delta
-		if chain_dash_ready_timer <= 0.0:
-			is_chain_dash_armed = false
-			update_mesh_color()
+	if is_vector_anchor_active:
+		vector_anchor_timer -= delta
+		if vector_anchor_timer <= 0.0:
+			clear_vector_anchor()
 			
 	# Charged Shot Charge Timer tracking
 	if is_charged_shot_charging:
@@ -372,16 +342,12 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("legs_ability"):
 		activate_legs_ability()
 		
-	# Primary Attack (Continuous fire) - Disabled during Burst Volley, Charged Shot Charging, Rocket Lunge and Vector Shift
-	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_vector_shifting and not is_rocket_lunging
+	# Primary Attack (Continuous fire) - Disabled during Burst Volley, Charged Shot Charging, and Rocket Lunge
+	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging
 	if Input.is_action_pressed("attack_primary") and fire_allowed:
 		if fire_cooldown_timer <= 0.0:
 			shoot()
 			fire_cooldown_timer = 1.0 / fire_rate
-			
-	# Update visual indicator ticks (e.g. for flashing Chain Dash ready status)
-	if is_chain_dash_armed:
-		update_mesh_color()
 			
 	# Update Canvas HUD
 	update_canvas_hud()
@@ -561,60 +527,113 @@ func fire_charged_shot() -> void:
 	proj.damage = projectile_damage * ability.projectile_damage_multiplier
 	proj.speed = projectile_speed * ability.projectile_speed_multiplier
 	proj.can_be_intercepted = true
+	proj.interception_durability = 2
 
 func activate_legs_ability() -> void:
 	if not bot_build or not bot_build.legs or not bot_build.legs.active_ability:
 		return
 	var ability = bot_build.legs.active_ability
-	if legs_cooldown_timer > 0.0:
-		return
-	if current_energy < ability.energy_cost:
-		return
-		
+	
 	var effect_type = ability.get("effect_type")
-	if effect_type == 6: # VECTOR_SHIFT
+	if effect_type == 6: # VECTOR_ANCHOR
+		# Trigger anchor placement OR return
+		if is_vector_anchor_active:
+			# Return player instantly to stored anchor position
+			global_position = vector_anchor_position
+			clear_vector_anchor()
+		else:
+			# Cooldown check
+			if legs_cooldown_timer > 0.0: return
+			if current_energy < ability.energy_cost: return
+			
+			current_energy -= ability.energy_cost
+			legs_cooldown_timer = ability.cooldown
+			
+			is_vector_anchor_active = true
+			vector_anchor_timer = ability.availability_duration
+			vector_anchor_position = global_position
+			
+			# Create visual marker
+			create_anchor_marker(vector_anchor_position)
+			update_mesh_color()
+	elif effect_type == 7: # PHASE_BLINK
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
-		execute_vector_shift(ability)
-	elif effect_type == 7: # CHAIN_DASH
-		current_energy -= ability.energy_cost
-		legs_cooldown_timer = ability.cooldown
-		execute_chain_dash(ability)
+		execute_phase_blink(ability)
 	elif effect_type == 8: # ROCKET_LUNGE
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
 		execute_rocket_lunge(ability)
 
-func execute_vector_shift(ability: Resource) -> void:
-	is_legs_active = true
-	is_vector_shifting = true
-	vector_shift_timer = 0.10 # fast/brief tact step
+func create_anchor_marker(pos: Vector3) -> void:
+	# Spawn a small cyan cylinder marker to visualize the anchor position
+	vector_anchor_marker = MeshInstance3D.new()
+	var cyl = CylinderMesh.new()
+	cyl.top_radius = 0.3
+	cyl.bottom_radius = 0.3
+	cyl.height = 0.1
+	vector_anchor_marker.mesh = cyl
 	
-	# Determine direction priority: WASD input first, else aiming direction
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.2, 0.9, 0.9, 0.6)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	vector_anchor_marker.material_override = mat
+	
+	get_parent().add_child(vector_anchor_marker)
+	vector_anchor_marker.global_position = pos
+
+func clear_vector_anchor() -> void:
+	is_vector_anchor_active = false
+	vector_anchor_timer = 0.0
+	if is_instance_valid(vector_anchor_marker):
+		vector_anchor_marker.queue_free()
+	vector_anchor_marker = null
+	update_mesh_color()
+
+func execute_phase_blink(ability: Resource) -> void:
+	# Direction priority: movement input first, else aiming direction
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
+	var blink_direction := Vector3.ZERO
 	if move_dir.length_squared() > 0.0:
-		vector_shift_direction = move_dir.normalized()
+		blink_direction = move_dir.normalized()
 	else:
 		var aim_dir = -aim_pivot.global_transform.basis.z
 		aim_dir.y = 0.0
-		vector_shift_direction = aim_dir.normalized()
+		blink_direction = aim_dir.normalized()
 		
-	vector_shift_speed = ability.movement_distance / 0.10
-	update_mesh_color()
-
-func execute_chain_dash(ability: Resource) -> void:
-	is_chain_dash_armed = true
-	chain_dash_ready_timer = ability.availability_duration
-	chain_dash_triggered_this_dash = false
-	update_mesh_color()
+	# Collision check query
+	var space_state = get_world_3d().direct_space_state
+	var distance = ability.blink_distance
+	var target_pos = global_position + blink_direction * distance
+	
+	var query = PhysicsRayQueryParameters3D.create(global_position, target_pos)
+	query.exclude = [get_rid()]
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		# Collision hit! Relocate to hit position minus a safe buffer offset back
+		var hit_pos = result.position
+		var buffer = blink_direction * 0.6
+		global_position = hit_pos - buffer
+	else:
+		global_position = target_pos
+		
+	# Simple visual blink flash
+	create_pulse_visual(1.5)
 
 func execute_rocket_lunge(ability: Resource) -> void:
 	is_legs_active = true
 	is_rocket_lunging = true
 	rocket_lunge_timer = ability.lunge_duration
 	
-	# Determine direction priority: WASD input first, else aiming direction
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
 	if move_dir.length_squared() > 0.0:
@@ -624,7 +643,6 @@ func execute_rocket_lunge(ability: Resource) -> void:
 		aim_dir.y = 0.0
 		rocket_lunge_direction = aim_dir.normalized()
 		
-	# Speed: 1.40x effective dash speed
 	rocket_lunge_speed = dash_speed * 1.40
 	update_mesh_color()
 
@@ -637,11 +655,6 @@ func update_mesh_color() -> void:
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(0.6, 0.2, 1.0)
 		mat.roughness = 0.2
-		mesh.material_override = mat
-	elif is_vector_shifting:
-		var mat = StandardMaterial3D.new()
-		mat.albedo_color = Color(0.2, 1.0, 0.2)
-		mat.roughness = 0.4
 		mesh.material_override = mat
 	elif is_rocket_lunging:
 		var mat = StandardMaterial3D.new()
@@ -665,11 +678,11 @@ func update_mesh_color() -> void:
 			mat.albedo_color = Color(0.9, 0.7, 0.1)
 			mat.roughness = 0.2
 			mesh.material_override = mat
-	elif is_chain_dash_armed:
+	elif is_vector_anchor_active:
 		var mat = StandardMaterial3D.new()
-		# Flashing light-blue pulse
+		# Cyan flashing pulse indicating vector anchor is armed
 		var pulse = 0.4 + 0.6 * sin(Time.get_ticks_msec() * 0.015)
-		mat.albedo_color = Color(0.1, 0.5, 1.0) * pulse
+		mat.albedo_color = Color(0.2, 0.9, 0.9) * pulse
 		mat.roughness = 0.4
 		mesh.material_override = mat
 	else:
@@ -713,12 +726,10 @@ func update_canvas_hud() -> void:
 		if bot_build and bot_build.legs and bot_build.legs.active_ability:
 			var ability = bot_build.legs.active_ability
 			var ab_name = ability.display_name.to_upper()
-			if is_vector_shifting:
-				legs_status = ab_name + " - ACTIVE"
+			if is_vector_anchor_active:
+				legs_status = ab_name + " - RETURN " + str(snapped(vector_anchor_timer, 0.1)) + "s"
 			elif is_rocket_lunging:
 				legs_status = ab_name + " - ACTIVE"
-			elif is_chain_dash_armed:
-				legs_status = ab_name + " - ARMED " + str(snapped(chain_dash_ready_timer, 0.1)) + "s"
 			elif legs_cooldown_timer > 0.0:
 				legs_status = ab_name + " - " + str(snapped(legs_cooldown_timer, 0.1)) + "s"
 			else:

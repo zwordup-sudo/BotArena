@@ -4,9 +4,9 @@
 
 [resource]
 script = ExtResource("1_ability")
-id = "light_chain_dash"
-display_name = "Chain Dash"
-description = "For 3.0s, the next normal Space Dash can chain into one bonus Dash."
+id = "light_phase_blink"
+display_name = "Phase Blink"
+description = "Instantly reposition up to 3.5 units. Can cross projectile paths but not walls."
 energy_cost = 35.0
 cooldown = 8.0
 duration = 0.0
@@ -24,6 +24,7 @@ projectile_size_multiplier = 1.0
 projectile_speed_multiplier = 1.0
 movement_distance = 0.0
 ability_move_speed = 0.0
-availability_duration = 3.0
+availability_duration = 0.0
 lunge_duration = 0.0
 recovery_duration = 0.0
+blink_distance = 3.5

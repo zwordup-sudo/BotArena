@@ -4,11 +4,11 @@
 
 [resource]
 script = ExtResource("1_ability")
-id = "standard_vector_shift"
-display_name = "Vector Shift"
-description = "Quick tactical step (2.75 units in movement or aim direction)."
-energy_cost = 25.0
-cooldown = 5.0
+id = "standard_vector_anchor"
+display_name = "Vector Anchor"
+description = "Stores your current position. Reactivate within 3 seconds to return."
+energy_cost = 30.0
+cooldown = 6.0
 duration = 0.0
 effect_type = 6
 pulse_radius = 0.0
@@ -22,8 +22,9 @@ fire_rate_multiplier = 1.0
 charge_time = 0.0
 projectile_size_multiplier = 1.0
 projectile_speed_multiplier = 1.0
-movement_distance = 2.75
+movement_distance = 0.0
 ability_move_speed = 0.0
-availability_duration = 0.0
+availability_duration = 3.0
 lunge_duration = 0.0
 recovery_duration = 0.0
+blink_distance = 0.0

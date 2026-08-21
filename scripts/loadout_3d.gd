@@ -171,6 +171,8 @@ func update_build_and_preview() -> void:
 			dur_str = "Ready window: " + str(ab.availability_duration) + "s"
 		elif ab.lunge_duration > 0.0:
 			dur_str = "Lunge: " + str(ab.lunge_duration) + "s"
+		elif ab.blink_distance > 0.0:
+			dur_str = "Blink: " + str(ab.blink_distance) + "m"
 			
 		legs_txt = "LEGS ABILITY: " + ab.display_name + "\n" + \
 			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration/Window: " + dur_str + "\n" + \

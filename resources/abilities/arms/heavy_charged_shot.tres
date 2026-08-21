@@ -6,7 +6,7 @@
 script = ExtResource("1_ability")
 id = "heavy_charged_shot"
 display_name = "Charged Shot"
-description = "Charges for 0.8s, firing a massive projectile dealing 250% damage at 85% speed."
+description = "Charges for 0.8s, firing a massive projectile dealing 250% damage at 85% speed. [Requires 2 normal projectile interceptions to destroy]"
 energy_cost = 35.0
 cooldown = 6.0
 duration = 0.0
