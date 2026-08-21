@@ -8,15 +8,17 @@ enum Slot { CORE, ARMS, LEGS }
 @export var slot: Slot = Slot.CORE
 @export var system: String = ""
 
-# Core Stats
-@export var max_health: float = 0.0
+# Multi-stat percentage modifiers (e.g. +20% is 0.20, -8% is -0.08)
+@export var max_health_pct: float = 0.0
+@export var movement_speed_pct: float = 0.0
+@export var fire_rate_pct: float = 0.0
+@export var projectile_damage_pct: float = 0.0
+@export var projectile_speed_pct: float = 0.0
+@export var dash_speed_pct: float = 0.0
+@export var dash_cooldown_pct: float = 0.0
+@export var dash_duration_pct: float = 0.0
 
-# Arms Stats
-@export var fire_rate: float = 0.0
-@export var projectile_damage: float = 0.0
-
-# Legs Stats
-@export var movement_speed: float = 0.0
-@export var dash_speed: float = 0.0
-@export var dash_duration: float = 0.0
-@export var dash_cooldown: float = 0.0
+# Resource costs/load
+@export var power_cost: float = 0.0
+@export var weight_cost: float = 0.0
+@export var thermal_load: float = 0.0

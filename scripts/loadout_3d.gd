@@ -18,8 +18,11 @@ const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS]
 
 @onready var core_selector: OptionButton = $VBoxContainer/CoreContainer/CoreSelector
+@onready var core_desc: Label = $VBoxContainer/CoreDesc
 @onready var arms_selector: OptionButton = $VBoxContainer/ArmsContainer/ArmsSelector
+@onready var arms_desc: Label = $VBoxContainer/ArmsDesc
 @onready var legs_selector: OptionButton = $VBoxContainer/LegsContainer/LegsSelector
+@onready var legs_desc: Label = $VBoxContainer/LegsDesc
 @onready var stats_label: Label = $VBoxContainer/StatsPanel/StatsLabel
 @onready var enter_button: Button = $VBoxContainer/EnterButton
 
@@ -65,12 +68,46 @@ func _ready() -> void:
 func _on_part_selected(_idx: int) -> void:
 	update_build_and_preview()
 
+func get_part_description(part: Resource) -> String:
+	if not part:
+		return ""
+	var desc = ""
+	if part.max_health_pct != 0.0:
+		desc += ("+" if part.max_health_pct > 0.0 else "") + str(int(part.max_health_pct * 100.0)) + "% HP, "
+	if part.movement_speed_pct != 0.0:
+		desc += ("+" if part.movement_speed_pct > 0.0 else "") + str(int(part.movement_speed_pct * 100.0)) + "% Movement, "
+	if part.fire_rate_pct != 0.0:
+		desc += ("+" if part.fire_rate_pct > 0.0 else "") + str(int(part.fire_rate_pct * 100.0)) + "% Fire Rate, "
+	if part.projectile_damage_pct != 0.0:
+		desc += ("+" if part.projectile_damage_pct > 0.0 else "") + str(int(part.projectile_damage_pct * 100.0)) + "% Damage, "
+	if part.projectile_speed_pct != 0.0:
+		desc += ("+" if part.projectile_speed_pct > 0.0 else "") + str(int(part.projectile_speed_pct * 100.0)) + "% Proj Speed, "
+	if part.dash_speed_pct != 0.0:
+		desc += ("+" if part.dash_speed_pct > 0.0 else "") + str(int(part.dash_speed_pct * 100.0)) + "% Dash Speed, "
+	if part.dash_cooldown_pct != 0.0:
+		desc += ("+" if part.dash_cooldown_pct > 0.0 else "") + str(int(part.dash_cooldown_pct * 100.0)) + "% Dash CD, "
+	if part.dash_duration_pct != 0.0:
+		desc += ("+" if part.dash_duration_pct > 0.0 else "") + str(int(part.dash_duration_pct * 100.0)) + "% Dash Dur, "
+	
+	if desc.ends_with(", "):
+		desc = desc.left(desc.length() - 2)
+	else:
+		desc = "Standard profile"
+		
+	desc += "\nPower: %d | Weight: %d | Thermal: %d" % [int(part.power_cost), int(part.weight_cost), int(part.thermal_load)]
+	return desc
+
 func update_build_and_preview() -> void:
-	# Instantiate standard BotBuild class dynamically to isolate from resources
+	# Instantiate standard BotBuild class dynamically to protect original resource files
 	current_build = load("res://scripts/data/bot_build.gd").new()
 	current_build.core = core_list[core_selector.selected]
 	current_build.arms = arms_list[arms_selector.selected]
 	current_build.legs = legs_list[legs_selector.selected]
+	
+	# Update item description labels
+	core_desc.text = get_part_description(current_build.core)
+	arms_desc.text = get_part_description(current_build.arms)
+	legs_desc.text = get_part_description(current_build.legs)
 	
 	# Detect preset name
 	var build_name = "CUSTOM"
@@ -85,25 +122,29 @@ func update_build_and_preview() -> void:
 	elif c_idx == 2 and a_idx == 2 and l_idx == 2:
 		build_name = "HEAVY"
 		
-	# Retrieve stats
-	var max_health = current_build.core.max_health
-	var fire_rate = current_build.arms.fire_rate
-	var projectile_damage = current_build.arms.projectile_damage
-	var speed = current_build.legs.movement_speed
-	var dash_speed = current_build.legs.dash_speed
-	var dash_duration = current_build.legs.dash_duration
-	var dash_cooldown = current_build.legs.dash_cooldown
+	# Call Calculator to get final effective stats after overload penalties
+	var calc = load("res://scripts/data/bot_stat_calculator.gd").calculate(current_build)
 	
-	# Update label
+	# Calculate Theoretical DPS
+	var dps = calc.projectile_damage * calc.fire_rate
+	
+	# Update label text
+	var power_txt = str(int(calc.total_power)) + " / 100" + (" - OVERLOADED" if calc.power_overloaded else "")
+	var weight_txt = str(int(calc.total_weight)) + " / 100" + (" - OVERLOADED" if calc.weight_overloaded else "")
+	var thermal_txt = str(int(calc.total_thermal)) + " / 100" + (" - OVERLOADED" if calc.thermal_overloaded else "")
+	
+	var stress_txt = ""
+	if calc.system_stress:
+		stress_txt = " | SYSTEM STRESS - Dash Cooldown +15%"
+	
 	stats_label.text = (
-		"BUILD: " + build_name + "\n\n" +
-		"HP: " + str(int(max_health)) + "\n" +
-		"MOVE: " + str(speed) + "\n" +
-		"FIRE RATE: " + str(fire_rate) + "\n" +
-		"DAMAGE: " + str(int(projectile_damage)) + "\n" +
-		"DASH SPEED: " + str(dash_speed) + "\n" +
-		"DASH DURATION: " + str(dash_duration) + "\n" +
-		"DASH CD: " + str(dash_cooldown)
+		"BUILD: " + build_name + stress_txt + "\n" +
+		"HP: " + str(int(calc.max_health)) + " | MOVE: " + str(snapped(calc.movement_speed, 0.1)) + " | FIRE: " + str(snapped(calc.fire_rate, 0.01)) + " | DMG: " + str(int(calc.projectile_damage)) + "\n" +
+		"PROJ SPD: " + str(snapped(calc.projectile_speed, 0.1)) + " | DASH SPD: " + str(snapped(calc.dash_speed, 0.1)) + " | DASH CD: " + str(snapped(calc.dash_cooldown, 0.01)) + "\n" +
+		"THEORETICAL DPS: " + str(snapped(dps, 0.1)) + "\n\n" +
+		"POWER: " + power_txt + "\n" +
+		"WEIGHT: " + weight_txt + "\n" +
+		"THERMAL: " + thermal_txt
 	)
 
 func _on_enter_pressed() -> void:

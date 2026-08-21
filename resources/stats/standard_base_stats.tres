@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BotBaseStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/bot_base_stats.gd" id="1_basestats"]
+
+[resource]
+script = ExtResource("1_basestats")
+max_health = 100.0
+movement_speed = 7.0
+fire_rate = 2.25
+projectile_damage = 25.0
+projectile_speed = 14.0
+dash_speed = 18.0
+dash_duration = 0.14
+dash_cooldown = 0.80
+power_capacity = 100.0
+weight_capacity = 100.0
+thermal_capacity = 100.0

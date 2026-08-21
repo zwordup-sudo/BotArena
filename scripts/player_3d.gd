@@ -7,6 +7,7 @@ var max_health: float = 100.0
 var speed: float = 7.0
 var fire_rate: float = 2.25
 var projectile_damage: float = 25.0
+var projectile_speed: float = 14.0
 
 var dash_speed: float = 18.0
 var dash_duration: float = 0.14
@@ -78,16 +79,16 @@ func _ready() -> void:
 
 func recalculate_stats() -> void:
 	if bot_build:
-		if bot_build.core:
-			max_health = bot_build.core.max_health
-		if bot_build.arms:
-			fire_rate = bot_build.arms.fire_rate
-			projectile_damage = bot_build.arms.projectile_damage
-		if bot_build.legs:
-			speed = bot_build.legs.movement_speed
-			dash_speed = bot_build.legs.dash_speed
-			dash_duration = bot_build.legs.dash_duration
-			dash_cooldown = bot_build.legs.dash_cooldown
+		var calc = load("res://scripts/data/bot_stat_calculator.gd").calculate(bot_build)
+		max_health = calc.max_health
+		speed = calc.movement_speed
+		fire_rate = calc.fire_rate
+		projectile_damage = calc.projectile_damage
+		projectile_speed = calc.projectile_speed
+		
+		dash_speed = calc.dash_speed
+		dash_duration = calc.dash_duration
+		dash_cooldown = calc.dash_cooldown
 
 func apply_build(new_build: Resource, build_name: String) -> void:
 	bot_build = new_build
@@ -253,10 +254,11 @@ func shoot() -> void:
 	if projectiles_node:
 		projectiles_node.add_child(proj)
 		
-	# Set position and dynamic projectile damage
+	# Set position, dynamic projectile damage, and speed
 	proj.global_position = muzzle.global_position
 	proj.direction = aim_dir
 	proj.damage = projectile_damage
+	proj.speed = projectile_speed
 
 func take_damage(amount: float) -> void:
 	current_health = clamp(current_health - amount, 0.0, max_health)
