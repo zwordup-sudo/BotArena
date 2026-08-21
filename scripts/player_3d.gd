@@ -29,6 +29,7 @@ const HEAVY_BUILD = preload("res://resources/builds/heavy_build.tres")
 const STANDARD_CORE = preload("res://resources/parts/core/standard_core.tres")
 const LIGHT_CORE = preload("res://resources/parts/core/light_core.tres")
 const HEAVY_CORE = preload("res://resources/parts/core/heavy_core.tres")
+const ASSASSIN_TEST_CORE = preload("res://resources/parts/core/assassin_test_core.tres")
 
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
@@ -39,10 +40,11 @@ const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arm
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
+const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_legs.tres")
 
-@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE]
+@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE]
 @onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS]
-@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS]
+@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS]
 
 var core_idx: int = 0
 var arms_idx: int = 0
@@ -107,6 +109,9 @@ var barrier_durability: int = 0
 # Evasion Window active state parameters (Reflex Overclock)
 var is_evading_projectiles: bool = false
 var projectile_evasion_timer: float = 0.0
+
+# Ghost Buffer guard charges (Assassin Core)
+var ghost_buffer_charges: int = 0
 
 var current_build_name: String = "BALANCED"
 
@@ -178,6 +183,7 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	core_duration_timer = 0.0
 	is_evading_projectiles = false
 	projectile_evasion_timer = 0.0
+	ghost_buffer_charges = 0
 	
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -403,7 +409,9 @@ func _process(delta: float) -> void:
 func activate_core_ability() -> void:
 	if not bot_build or not bot_build.core or not bot_build.core.active_ability:
 		return
-	var ability = bot_build.core.active_ability
+	var ability = bot_build.core.active_ability as AbilityData
+	if not ability:
+		return
 	if core_cooldown_timer > 0.0:
 		return
 	if current_energy < ability.energy_cost:
@@ -413,23 +421,25 @@ func activate_core_ability() -> void:
 	core_cooldown_timer = ability.cooldown
 	
 	# Execute Dash Cooldown refresh once at activation (if configured)
-	if ability.get("refresh_dash_on_activate") == true:
+	if ability.refresh_dash_on_activate:
 		dash_cooldown_timer = 0.0
 		
 	# Execute Projectile Evasion duration (if configured)
-	if ability.get("projectile_evasion_duration") > 0.0:
+	if ability.projectile_evasion_duration > 0.0:
 		is_evading_projectiles = true
 		projectile_evasion_timer = ability.projectile_evasion_duration
 	
-	var effect_type = ability.get("effect_type")
+	var effect_type = ability.effect_type
 	if effect_type == 0: # DIRECTIONAL_BARRIER
 		start_directional_barrier(ability)
 	elif effect_type == 1: # TEMPORARY_STAT_MODIFIER
 		start_core_stat_modifier(ability)
 	elif effect_type == 2: # DAMAGE_REDUCTION
 		start_core_damage_reduction(ability)
+	elif effect_type == 9: # GHOST_BUFFER (Assassin Core Ingress)
+		start_ghost_buffer(ability)
 
-func start_directional_barrier(ability: Resource) -> void:
+func start_directional_barrier(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
 	barrier_durability = ability.projectile_block_capacity
@@ -484,7 +494,7 @@ func deduct_barrier_durability() -> void:
 	if barrier_durability <= 0:
 		end_core_ability()
 
-func start_core_stat_modifier(ability: Resource) -> void:
+func start_core_stat_modifier(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
 	core_temp_speed_mod = ability.movement_speed_pct
@@ -493,7 +503,7 @@ func start_core_stat_modifier(ability: Resource) -> void:
 	update_mesh_color()
 	recalculate_stats()
 
-func start_core_damage_reduction(ability: Resource) -> void:
+func start_core_damage_reduction(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
 	core_temp_speed_mod = ability.movement_speed_pct
@@ -502,6 +512,22 @@ func start_core_damage_reduction(ability: Resource) -> void:
 	update_mesh_color()
 	recalculate_stats()
 
+func start_ghost_buffer(ability: AbilityData) -> void:
+	is_core_active = true
+	core_duration_timer = ability.duration
+	ghost_buffer_charges = ability.projectile_guard_charges
+	
+	update_mesh_color()
+
+func deduct_ghost_buffer_charge() -> void:
+	if ghost_buffer_charges > 0:
+		ghost_buffer_charges -= 1
+		print("Ghost Buffer charges remaining: ", ghost_buffer_charges)
+		if ghost_buffer_charges <= 0:
+			end_core_ability()
+		else:
+			update_mesh_color()
+
 func end_core_ability() -> void:
 	is_core_active = false
 	core_temp_speed_mod = 0.0
@@ -509,6 +535,7 @@ func end_core_ability() -> void:
 	incoming_damage_multiplier = 1.0
 	is_evading_projectiles = false
 	projectile_evasion_timer = 0.0
+	ghost_buffer_charges = 0
 	
 	# Clear barrier node
 	if is_instance_valid(barrier_node):
@@ -522,7 +549,9 @@ func end_core_ability() -> void:
 func activate_arms_ability() -> void:
 	if not bot_build or not bot_build.arms or not bot_build.arms.active_ability:
 		return
-	var ability = bot_build.arms.active_ability
+	var ability = bot_build.arms.active_ability as AbilityData
+	if not ability:
+		return
 	if arms_cooldown_timer > 0.0:
 		return
 	if current_energy < ability.energy_cost:
@@ -531,7 +560,7 @@ func activate_arms_ability() -> void:
 	current_energy -= ability.energy_cost
 	arms_cooldown_timer = ability.cooldown
 	
-	var effect_type = ability.get("effect_type")
+	var effect_type = ability.effect_type
 	if effect_type == 3: # BURST_VOLLEY
 		execute_burst_volley(ability)
 	elif effect_type == 4: # TWIN_STREAM
@@ -539,7 +568,7 @@ func activate_arms_ability() -> void:
 	elif effect_type == 5: # CHARGED_SHOT
 		start_arms_charged_shot(ability)
 
-func execute_burst_volley(ability: Resource) -> void:
+func execute_burst_volley(ability: AbilityData) -> void:
 	is_burst_volley_active = true
 	var count = ability.projectile_count
 	var interval = ability.shot_interval
@@ -569,7 +598,7 @@ func fire_burst_projectile(dmg_mult: float) -> void:
 	proj.damage = projectile_damage * dmg_mult
 	proj.speed = projectile_speed
 
-func start_arms_twin_stream(ability: Resource) -> void:
+func start_arms_twin_stream(ability: AbilityData) -> void:
 	is_arms_active = true
 	arms_duration_timer = ability.duration
 	
@@ -584,7 +613,7 @@ func end_arms_ability() -> void:
 	update_mesh_color()
 	recalculate_stats()
 
-func start_arms_charged_shot(ability: Resource) -> void:
+func start_arms_charged_shot(ability: AbilityData) -> void:
 	is_charged_shot_charging = true
 	charged_shot_charge_timer = ability.charge_time
 	
@@ -596,7 +625,9 @@ func fire_charged_shot() -> void:
 	
 	if not bot_build or not bot_build.arms or not bot_build.arms.active_ability:
 		return
-	var ability = bot_build.arms.active_ability
+	var ability = bot_build.arms.active_ability as AbilityData
+	if not ability:
+		return
 	
 	var proj = PROJECTILE_SCENE.instantiate()
 	var aim_dir = -aim_pivot.global_transform.basis.z
@@ -620,9 +651,11 @@ func fire_charged_shot() -> void:
 func activate_legs_ability() -> void:
 	if not bot_build or not bot_build.legs or not bot_build.legs.active_ability:
 		return
-	var ability = bot_build.legs.active_ability
+	var ability = bot_build.legs.active_ability as AbilityData
+	if not ability:
+		return
 	
-	var effect_type = ability.get("effect_type")
+	var effect_type = ability.effect_type
 	if effect_type == 6: # VECTOR_ANCHOR
 		# Trigger anchor placement OR return
 		if is_vector_anchor_active:
@@ -658,6 +691,13 @@ func activate_legs_ability() -> void:
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
 		execute_rocket_lunge(ability)
+	elif effect_type == 10: # RECOIL_STEP (Assassin Legs Disengage)
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
+		current_energy -= ability.energy_cost
+		legs_cooldown_timer = ability.cooldown
+		execute_recoil_step(ability)
 
 func create_anchor_marker(pos: Vector3) -> void:
 	vector_anchor_marker = MeshInstance3D.new()
@@ -684,7 +724,7 @@ func clear_vector_anchor() -> void:
 	vector_anchor_marker = null
 	update_mesh_color()
 
-func execute_phase_blink(ability: Resource) -> void:
+func execute_phase_blink(ability: AbilityData) -> void:
 	# Direction priority: movement input first, else aiming direction
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
@@ -735,7 +775,7 @@ func create_blink_visual(radius: float) -> void:
 	tween.tween_property(mesh_instance, "scale", Vector3.ONE, 0.2)
 	tween.tween_callback(mesh_instance.queue_free)
 
-func execute_rocket_lunge(ability: Resource) -> void:
+func execute_rocket_lunge(ability: AbilityData) -> void:
 	is_legs_active = true
 	is_rocket_lunging = true
 	rocket_lunge_timer = ability.lunge_duration
@@ -751,6 +791,30 @@ func execute_rocket_lunge(ability: Resource) -> void:
 		
 	rocket_lunge_speed = dash_speed * 1.40
 	update_mesh_color()
+
+func execute_recoil_step(ability: AbilityData) -> void:
+	# Calculate disengage direction as the horizontal opposite of current aim direction
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	var recoil_direction = -aim_dir.normalized()
+	
+	# Raycast safety check query
+	var space_state = get_world_3d().direct_space_state
+	var distance = ability.movement_distance
+	var target_pos = global_position + recoil_direction * distance
+	
+	var query = PhysicsRayQueryParameters3D.create(global_position, target_pos)
+	query.exclude = [get_rid()]
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		var hit_pos = result.position
+		var buffer = recoil_direction * 0.6
+		global_position = hit_pos - buffer
+	else:
+		global_position = target_pos
+		
+	create_blink_visual(1.5)
 
 func update_mesh_color() -> void:
 	var mesh = aim_pivot.get_node_or_null("BodyMesh")
@@ -775,6 +839,12 @@ func update_mesh_color() -> void:
 	elif is_evading_projectiles:
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(0.2, 0.9, 0.9, 0.4) # transparent cyan evasion glow
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mesh.material_override = mat
+	elif ghost_buffer_charges > 0: # Ghost Buffer (translucent magenta)
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.8, 0.2, 0.8, 0.5)
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mesh.material_override = mat
@@ -814,47 +884,52 @@ func update_canvas_hud() -> void:
 		# Format Core ability status
 		var core_status = "NONE"
 		if bot_build and bot_build.core and bot_build.core.active_ability:
-			var ability = bot_build.core.active_ability
-			var ab_name = ability.display_name.to_upper()
-			if is_core_active:
-				if ability.effect_type == 0: # DIRECTIONAL_BARRIER
-					core_status = "BARRIER - ACTIVE " + str(barrier_durability) + "/3"
-				elif is_evading_projectiles:
-					core_status = ab_name + " - EVADE " + str(snapped(projectile_evasion_timer, 0.1)) + "s"
+			var ability = bot_build.core.active_ability as AbilityData
+			if ability:
+				var ab_name = ability.display_name.to_upper()
+				if is_core_active:
+					if ability.effect_type == 0: # DIRECTIONAL_BARRIER
+						core_status = "BARRIER - ACTIVE " + str(barrier_durability) + "/3"
+					elif ability.effect_type == 9: # GHOST_BUFFER
+						core_status = "GHOST BUFFER - " + str(ghost_buffer_charges) + "/2"
+					elif is_evading_projectiles:
+						core_status = ab_name + " - EVADE " + str(snapped(projectile_evasion_timer, 0.1)) + "s"
+					else:
+						core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
+				elif core_cooldown_timer > 0.0:
+					core_status = ab_name + " - " + str(snapped(core_cooldown_timer, 0.1)) + "s"
 				else:
-					core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
-			elif core_cooldown_timer > 0.0:
-				core_status = ab_name + " - " + str(snapped(core_cooldown_timer, 0.1)) + "s"
-			else:
-				core_status = ab_name + " - READY"
+					core_status = ab_name + " - READY"
 				
 		# Format Arms ability status
 		var arms_status = "NO ARMS ABILITY"
 		if bot_build and bot_build.arms and bot_build.arms.active_ability:
-			var ability = bot_build.arms.active_ability
-			var ab_name = ability.display_name.to_upper()
-			if is_charged_shot_charging:
-				arms_status = ab_name + " - CHARGING " + str(snapped(charged_shot_charge_timer, 0.1)) + "s"
-			elif is_arms_active:
-				arms_status = ab_name + " - ACTIVE " + str(snapped(arms_duration_timer, 0.1)) + "s"
-			elif arms_cooldown_timer > 0.0:
-				arms_status = ab_name + " - " + str(snapped(arms_cooldown_timer, 0.1)) + "s"
-			else:
-				arms_status = ab_name + " - READY"
+			var ability = bot_build.arms.active_ability as AbilityData
+			if ability:
+				var ab_name = ability.display_name.to_upper()
+				if is_charged_shot_charging:
+					arms_status = ab_name + " - CHARGING " + str(snapped(charged_shot_charge_timer, 0.1)) + "s"
+				elif is_arms_active:
+					arms_status = ab_name + " - ACTIVE " + str(snapped(arms_duration_timer, 0.1)) + "s"
+				elif arms_cooldown_timer > 0.0:
+					arms_status = ab_name + " - " + str(snapped(arms_cooldown_timer, 0.1)) + "s"
+				else:
+					arms_status = ab_name + " - READY"
 				
 		# Format Legs ability status
 		var legs_status = "NONE"
 		if bot_build and bot_build.legs and bot_build.legs.active_ability:
-			var ability = bot_build.legs.active_ability
-			var ab_name = ability.display_name.to_upper()
-			if is_vector_anchor_active:
-				legs_status = ab_name + " - RETURN " + str(snapped(vector_anchor_timer, 0.1)) + "s"
-			elif is_rocket_lunging:
-				legs_status = ab_name + " - ACTIVE"
-			elif legs_cooldown_timer > 0.0:
-				legs_status = ab_name + " - " + str(snapped(legs_cooldown_timer, 0.1)) + "s"
-			else:
-				legs_status = ab_name + " - READY"
+			var ability = bot_build.legs.active_ability as AbilityData
+			if ability:
+				var ab_name = ability.display_name.to_upper()
+				if is_vector_anchor_active:
+					legs_status = ab_name + " - RETURN " + str(snapped(vector_anchor_timer, 0.1)) + "s"
+				elif is_rocket_lunging:
+					legs_status = ab_name + " - ACTIVE"
+				elif legs_cooldown_timer > 0.0:
+					legs_status = ab_name + " - " + str(snapped(legs_cooldown_timer, 0.1)) + "s"
+				else:
+					legs_status = ab_name + " - READY"
 		
 		label.text = (
 			"BUILD: " + current_build_name + "\n" +

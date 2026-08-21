@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "assassin_ghost_buffer"
+display_name = "Ghost Buffer"
+description = "Absorbs the next two hostile projectile hits during a short ingress window."
+energy_cost = 35.0
+cooldown = 7.0
+duration = 1.5
+effect_type = 9
+projectile_guard_charges = 2

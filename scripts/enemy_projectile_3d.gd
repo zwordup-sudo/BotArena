@@ -25,6 +25,15 @@ func _physics_process(delta: float) -> void:
 func _on_body_entered(body: Node3D) -> void:
 	if body.get("is_evading_projectiles") == true:
 		return
+		
+	# Check for Ghost Buffer guard charges
+	if body.get("ghost_buffer_charges") != null and body.ghost_buffer_charges > 0:
+		if body.has_method("deduct_ghost_buffer_charge"):
+			body.deduct_ghost_buffer_charge()
+			if not is_queued_for_deletion():
+				queue_free()
+			return
+			
 	if body.has_method("take_damage"):
 		body.take_damage(damage)
 		if not is_queued_for_deletion():

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
+
+[ext_resource type="Resource" path="res://resources/abilities/core/assassin_ghost_buffer.tres" id="1_ability"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_partdata"]
+
+[resource]
+script = ExtResource("2_partdata")
+id = "assassin_test_core"
+display_name = "Assassin Test Core"
+slot = 0
+system = "Standard"
+max_health_pct = -0.10
+movement_speed_pct = 0.03
+fire_rate_pct = 0.05
+projectile_damage_pct = 0.0
+projectile_speed_pct = 0.0
+dash_speed_pct = 0.0
+dash_cooldown_pct = 0.0
+dash_duration_pct = 0.0
+power_cost = 30.0
+weight_cost = 15.0
+thermal_load = 20.0
+active_ability = ExtResource("1_ability")

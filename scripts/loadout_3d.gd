@@ -4,6 +4,7 @@ extends Control
 const STANDARD_CORE = preload("res://resources/parts/core/standard_core.tres")
 const LIGHT_CORE = preload("res://resources/parts/core/light_core.tres")
 const HEAVY_CORE = preload("res://resources/parts/core/heavy_core.tres")
+const ASSASSIN_TEST_CORE = preload("res://resources/parts/core/assassin_test_core.tres")
 
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
@@ -14,10 +15,11 @@ const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arm
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
+const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_legs.tres")
 
-@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE]
+@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE]
 @onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS]
-@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS]
+@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
 @onready var core_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreDesc
@@ -171,8 +173,11 @@ func update_build_and_preview() -> void:
 	if current_build.core and current_build.core.active_ability:
 		var ab = current_build.core.active_ability
 		var dur_str = (str(ab.duration) + "s") if ab.duration > 0.0 else "N/A"
+		var extra_info = ""
+		if ab.get("projectile_guard_charges") != null and ab.projectile_guard_charges > 0:
+			extra_info = " | Projectile Guards: " + str(ab.projectile_guard_charges)
 		ability_txt = "CORE ABILITY: " + ab.display_name + "\n" + \
-			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration: " + dur_str + "\n" + \
+			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration: " + dur_str + extra_info + "\n" + \
 			ab.description
 			
 	# Arms active ability summary
@@ -202,6 +207,8 @@ func update_build_and_preview() -> void:
 			dur_str = "Lunge: " + str(ab.lunge_duration) + "s"
 		elif ab.blink_distance > 0.0:
 			dur_str = "Blink: " + str(ab.blink_distance) + "m"
+		elif ab.get("movement_distance") != null and ab.movement_distance > 0.0:
+			dur_str = "Distance: " + str(ab.movement_distance)
 			
 		legs_txt = "LEGS ABILITY: " + ab.display_name + "\n" + \
 			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration/Window: " + dur_str + "\n" + \

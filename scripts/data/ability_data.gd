@@ -10,7 +10,9 @@ enum EffectType {
 	CHARGED_SHOT,
 	VECTOR_ANCHOR,
 	PHASE_BLINK,
-	ROCKET_LUNGE
+	ROCKET_LUNGE,
+	GHOST_BUFFER,
+	RECOIL_STEP
 }
 
 @export var id: String = ""
@@ -55,3 +57,6 @@ enum EffectType {
 # Light Identity Tuning configuration fields
 @export var fire_rate_flat_bonus: float = 0.0
 @export var projectile_evasion_duration: float = 0.0
+
+# Role Lab 0.1 configuration fields
+@export var projectile_guard_charges: int = 0
