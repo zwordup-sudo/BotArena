@@ -98,6 +98,10 @@ var rocket_lunge_timer: float = 0.0
 var rocket_lunge_direction: Vector3 = Vector3.ZERO
 var rocket_lunge_speed: float = 0.0
 
+# Directional Barrier active state parameters
+var barrier_node: Area3D = null
+var barrier_durability: int = 0
+
 var current_build_name: String = "BALANCED"
 
 func _ready() -> void:
@@ -150,6 +154,11 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	incoming_damage_multiplier = 1.0
 	core_cooldown_timer = 0.0
 	core_duration_timer = 0.0
+	
+	if is_instance_valid(barrier_node):
+		barrier_node.queue_free()
+	barrier_node = null
+	barrier_durability = 0
 	
 	is_arms_active = false
 	arms_temp_fire_rate_multiplier = 1.0
@@ -364,43 +373,72 @@ func activate_core_ability() -> void:
 	current_energy -= ability.energy_cost
 	core_cooldown_timer = ability.cooldown
 	
+	# Execute Dash Cooldown refresh once at activation
+	if ability.get("refresh_dash_on_activate") == true:
+		dash_cooldown_timer = 0.0
+	
 	var effect_type = ability.get("effect_type")
-	if effect_type == 0: # PULSE_INTERCEPT
-		execute_pulse(ability.pulse_radius)
+	if effect_type == 0: # DIRECTIONAL_BARRIER
+		start_directional_barrier(ability)
 	elif effect_type == 1: # TEMPORARY_STAT_MODIFIER
 		start_core_stat_modifier(ability)
 	elif effect_type == 2: # DAMAGE_REDUCTION
 		start_core_damage_reduction(ability)
 
-func execute_pulse(radius: float) -> void:
-	create_pulse_visual(radius)
-	var project_group = get_tree().get_nodes_in_group("hostile_projectile")
-	for proj in project_group:
-		if is_instance_valid(proj) and proj.get("can_be_intercepted") == true:
-			var dist = global_position.distance_to(proj.global_position)
-			if dist <= radius:
-				proj.queue_free()
+func start_directional_barrier(ability: Resource) -> void:
+	is_core_active = true
+	core_duration_timer = ability.duration
+	barrier_durability = ability.projectile_block_capacity
+	
+	# Dynamically instantiate front-facing barrier colliders under aim pivot
+	if not barrier_node:
+		barrier_node = Area3D.new()
+		
+		# Set collision shape bounds matching frontal wall
+		var col = CollisionShape3D.new()
+		var box = BoxShape3D.new()
+		box.size = Vector3(2.5, 1.5, 0.2)
+		col.shape = box
+		barrier_node.add_child(col)
+		col.position = Vector3(0.0, 0.0, -1.2) # set in front of player model
+		
+		# Set clean visual standard shader block
+		var mesh_instance = MeshInstance3D.new()
+		var quad = BoxMesh.new()
+		quad.size = Vector3(2.5, 1.5, 0.05)
+		mesh_instance.mesh = quad
+		
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.2, 0.6, 1.0, 0.4)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mesh_instance.material_override = mat
+		
+		barrier_node.add_child(mesh_instance)
+		mesh_instance.position = Vector3(0.0, 0.0, -1.2)
+		
+		aim_pivot.add_child(barrier_node)
+		barrier_node.add_to_group("player_barrier")
+		barrier_node.area_entered.connect(_on_barrier_area_entered)
+		
+	update_mesh_color()
 
-func create_pulse_visual(radius: float) -> void:
-	var mesh_instance = MeshInstance3D.new()
-	var sphere = SphereMesh.new()
-	sphere.radius = radius
-	sphere.height = radius * 2.0
-	mesh_instance.mesh = sphere
-	
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.2, 0.6, 1.0, 0.3)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mesh_instance.material_override = mat
-	
-	get_parent().add_child(mesh_instance)
-	mesh_instance.global_position = global_position
-	
-	mesh_instance.scale = Vector3.ZERO
-	var tween = create_tween()
-	tween.tween_property(mesh_instance, "scale", Vector3.ONE, 0.25)
-	tween.tween_callback(mesh_instance.queue_free)
+func _on_barrier_area_entered(area: Area3D) -> void:
+	if not is_core_active or not bot_build or not bot_build.core:
+		return
+	if bot_build.core.active_ability.effect_type != 0: # DIRECTIONAL_BARRIER
+		return
+		
+	# Blocks hostile interceptable projectiles
+	if area.is_in_group("hostile_projectile") and area.get("can_be_intercepted") == true:
+		if not area.is_queued_for_deletion():
+			area.queue_free() # Destroys hostile projectile
+			deduct_barrier_durability()
+
+func deduct_barrier_durability() -> void:
+	barrier_durability -= 1
+	if barrier_durability <= 0:
+		end_core_ability()
 
 func start_core_stat_modifier(ability: Resource) -> void:
 	is_core_active = true
@@ -426,6 +464,12 @@ func end_core_ability() -> void:
 	core_temp_dash_speed_mod = 0.0
 	incoming_damage_multiplier = 1.0
 	
+	# Clear barrier node
+	if is_instance_valid(barrier_node):
+		barrier_node.queue_free()
+	barrier_node = null
+	barrier_durability = 0
+	
 	update_mesh_color()
 	recalculate_stats()
 
@@ -444,8 +488,8 @@ func activate_arms_ability() -> void:
 	var effect_type = ability.get("effect_type")
 	if effect_type == 3: # BURST_VOLLEY
 		execute_burst_volley(ability)
-	elif effect_type == 4: # SUPPRESSIVE_FIRE
-		start_arms_suppressive_fire(ability)
+	elif effect_type == 4: # TWIN_STREAM
+		start_arms_twin_stream(ability)
 	elif effect_type == 5: # CHARGED_SHOT
 		start_arms_charged_shot(ability)
 
@@ -479,11 +523,9 @@ func fire_burst_projectile(dmg_mult: float) -> void:
 	proj.damage = projectile_damage * dmg_mult
 	proj.speed = projectile_speed
 
-func start_arms_suppressive_fire(ability: Resource) -> void:
+func start_arms_twin_stream(ability: Resource) -> void:
 	is_arms_active = true
 	arms_duration_timer = ability.duration
-	arms_temp_fire_rate_multiplier = ability.fire_rate_multiplier
-	arms_temp_projectile_damage_multiplier = ability.projectile_damage_multiplier
 	
 	update_mesh_color()
 	recalculate_stats()
@@ -572,7 +614,6 @@ func activate_legs_ability() -> void:
 		execute_rocket_lunge(ability)
 
 func create_anchor_marker(pos: Vector3) -> void:
-	# Spawn a small cyan cylinder marker to visualize the anchor position
 	vector_anchor_marker = MeshInstance3D.new()
 	var cyl = CylinderMesh.new()
 	cyl.top_radius = 0.3
@@ -619,15 +660,34 @@ func execute_phase_blink(ability: Resource) -> void:
 	var result = space_state.intersect_ray(query)
 	
 	if result:
-		# Collision hit! Relocate to hit position minus a safe buffer offset back
 		var hit_pos = result.position
 		var buffer = blink_direction * 0.6
 		global_position = hit_pos - buffer
 	else:
 		global_position = target_pos
 		
-	# Simple visual blink flash
-	create_pulse_visual(1.5)
+	create_blink_visual(1.5)
+
+func create_blink_visual(radius: float) -> void:
+	var mesh_instance = MeshInstance3D.new()
+	var sphere = SphereMesh.new()
+	sphere.radius = radius
+	sphere.height = radius * 2.0
+	mesh_instance.mesh = sphere
+	
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.1, 0.5, 1.0, 0.4)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh_instance.material_override = mat
+	
+	get_parent().add_child(mesh_instance)
+	mesh_instance.global_position = global_position
+	
+	mesh_instance.scale = Vector3.ZERO
+	var tween = create_tween()
+	tween.tween_property(mesh_instance, "scale", Vector3.ONE, 0.2)
+	tween.tween_callback(mesh_instance.queue_free)
 
 func execute_rocket_lunge(ability: Resource) -> void:
 	is_legs_active = true
@@ -661,14 +721,19 @@ func update_mesh_color() -> void:
 		mat.albedo_color = Color(1.0, 0.5, 0.0)
 		mat.roughness = 0.2
 		mesh.material_override = mat
-	elif is_arms_active: # Suppressive Fire
+	elif is_arms_active: # Twin Stream / Suppressive Fire
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(1.0, 0.2, 0.6)
 		mat.roughness = 0.4
 		mesh.material_override = mat
 	elif is_core_active:
 		var ability_type = bot_build.core.active_ability.effect_type
-		if ability_type == 1: # Overclock (Cyan)
+		if ability_type == 0: # Directional Barrier (Blue frontal wall active)
+			var mat = StandardMaterial3D.new()
+			mat.albedo_color = Color(0.1, 0.4, 0.8)
+			mat.roughness = 0.5
+			mesh.material_override = mat
+		elif ability_type == 1: # Overclock (Cyan)
 			var mat = StandardMaterial3D.new()
 			mat.albedo_color = Color(0.2, 0.9, 0.9)
 			mat.roughness = 0.4
@@ -680,7 +745,6 @@ func update_mesh_color() -> void:
 			mesh.material_override = mat
 	elif is_vector_anchor_active:
 		var mat = StandardMaterial3D.new()
-		# Cyan flashing pulse indicating vector anchor is armed
 		var pulse = 0.4 + 0.6 * sin(Time.get_ticks_msec() * 0.015)
 		mat.albedo_color = Color(0.2, 0.9, 0.9) * pulse
 		mat.roughness = 0.4
@@ -701,7 +765,10 @@ func update_canvas_hud() -> void:
 			var ability = bot_build.core.active_ability
 			var ab_name = ability.display_name.to_upper()
 			if is_core_active:
-				core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
+				if ability.effect_type == 0: # DIRECTIONAL_BARRIER
+					core_status = "BARRIER - ACTIVE " + str(barrier_durability) + "/3"
+				else:
+					core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
 			elif core_cooldown_timer > 0.0:
 				core_status = ab_name + " - " + str(snapped(core_cooldown_timer, 0.1)) + "s"
 			else:
@@ -768,10 +835,31 @@ func start_dash() -> void:
 	dash_cooldown_timer = dash_cooldown
 
 func shoot() -> void:
+	if is_arms_active and bot_build and bot_build.arms and bot_build.arms.active_ability.effect_type == 4: # TWIN_STREAM
+		var spread = deg_to_rad(2.5) # 5 degrees total symmetric spread
+		fire_twin_projectile(-spread)
+		fire_twin_projectile(spread)
+	else:
+		var proj = PROJECTILE_SCENE.instantiate()
+		var aim_dir = -aim_pivot.global_transform.basis.z
+		aim_dir.y = 0.0
+		aim_dir = aim_dir.normalized()
+		
+		var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+		if projectiles_node:
+			projectiles_node.add_child(proj)
+			
+		proj.global_position = muzzle.global_position
+		proj.direction = aim_dir
+		proj.damage = projectile_damage
+		proj.speed = projectile_speed
+
+func fire_twin_projectile(angle_offset: float) -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
+	aim_dir = aim_dir.rotated(Vector3.UP, angle_offset)
 	
 	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
 	if projectiles_node:
@@ -779,7 +867,8 @@ func shoot() -> void:
 		
 	proj.global_position = muzzle.global_position
 	proj.direction = aim_dir
-	proj.damage = projectile_damage
+	# Twin Stream deals 55% normal effective damage
+	proj.damage = projectile_damage * 0.55
 	proj.speed = projectile_speed
 
 func take_damage(amount: float) -> void:

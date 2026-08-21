@@ -2,11 +2,11 @@ class_name AbilityData
 extends Resource
 
 enum EffectType {
-	PULSE_INTERCEPT,
+	DIRECTIONAL_BARRIER,
 	TEMPORARY_STAT_MODIFIER,
 	DAMAGE_REDUCTION,
 	BURST_VOLLEY,
-	SUPPRESSIVE_FIRE,
+	TWIN_STREAM,
 	CHARGED_SHOT,
 	VECTOR_ANCHOR,
 	PHASE_BLINK,
@@ -21,7 +21,7 @@ enum EffectType {
 @export var cooldown: float = 0.0
 @export var duration: float = 0.0
 
-@export var effect_type: EffectType = EffectType.PULSE_INTERCEPT
+@export var effect_type: EffectType = EffectType.DIRECTIONAL_BARRIER
 
 # Ability-specific configuration fields
 @export var pulse_radius: float = 0.0
@@ -45,3 +45,9 @@ enum EffectType {
 @export var lunge_duration: float = 0.0
 @export var recovery_duration: float = 0.0
 @export var blink_distance: float = 0.0
+
+# Redesign Pass configuration fields
+@export var projectile_block_capacity: int = 0
+@export var refresh_dash_on_activate: bool = false
+@export var projectiles_per_shot: int = 0
+@export var spread_angle_degrees: float = 0.0
