@@ -7,7 +7,10 @@ enum EffectType {
 	DAMAGE_REDUCTION,
 	BURST_VOLLEY,
 	SUPPRESSIVE_FIRE,
-	CHARGED_SHOT
+	CHARGED_SHOT,
+	VECTOR_SHIFT,
+	CHAIN_DASH,
+	ROCKET_LUNGE
 }
 
 @export var id: String = ""
@@ -34,3 +37,10 @@ enum EffectType {
 @export var charge_time: float = 0.0
 @export var projectile_size_multiplier: float = 1.0
 @export var projectile_speed_multiplier: float = 1.0
+
+# Legs Ability configuration fields
+@export var movement_distance: float = 0.0
+@export var ability_move_speed: float = 0.0
+@export var availability_duration: float = 0.0
+@export var lunge_duration: float = 0.0
+@export var recovery_duration: float = 0.0

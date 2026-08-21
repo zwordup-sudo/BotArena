@@ -17,14 +17,14 @@ const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 @onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS]
 
-@onready var core_selector: OptionButton = $VBoxContainer/CoreContainer/CoreSelector
-@onready var core_desc: Label = $VBoxContainer/CoreDesc
-@onready var arms_selector: OptionButton = $VBoxContainer/ArmsContainer/ArmsSelector
-@onready var arms_desc: Label = $VBoxContainer/ArmsDesc
-@onready var legs_selector: OptionButton = $VBoxContainer/LegsContainer/LegsSelector
-@onready var legs_desc: Label = $VBoxContainer/LegsDesc
-@onready var stats_label: Label = $VBoxContainer/StatsPanel/StatsLabel
-@onready var enter_button: Button = $VBoxContainer/EnterButton
+@onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
+@onready var core_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreDesc
+@onready var arms_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ArmsContainer/ArmsSelector
+@onready var arms_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ArmsDesc
+@onready var legs_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/LegsContainer/LegsSelector
+@onready var legs_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/LegsDesc
+@onready var stats_label: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/StatsPanel/StatsLabel
+@onready var enter_button: Button = $MarginContainer/VBoxContainer/EnterButton
 
 var current_build: Resource
 
@@ -159,6 +159,22 @@ func update_build_and_preview() -> void:
 		arms_txt = "ARMS ABILITY: " + ab.display_name + "\n" + \
 			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration/Charge: " + dur_str + "\n" + \
 			ab.description
+			
+	# Legs active ability summary
+	var legs_txt = "LEGS ABILITY: None"
+	if current_build.legs and current_build.legs.active_ability:
+		var ab = current_build.legs.active_ability
+		var dur_str = "N/A"
+		if ab.duration > 0.0:
+			dur_str = str(ab.duration) + "s"
+		elif ab.availability_duration > 0.0:
+			dur_str = "Ready window: " + str(ab.availability_duration) + "s"
+		elif ab.lunge_duration > 0.0:
+			dur_str = "Lunge: " + str(ab.lunge_duration) + "s"
+			
+		legs_txt = "LEGS ABILITY: " + ab.display_name + "\n" + \
+			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration/Window: " + dur_str + "\n" + \
+			ab.description
 	
 	stats_label.text = (
 		"BUILD: " + build_name + stress_txt + "\n" +
@@ -168,7 +184,8 @@ func update_build_and_preview() -> void:
 		"POWER: " + power_txt + " | WEIGHT: " + weight_txt + " | THERMAL: " + thermal_txt + "\n\n" +
 		"ENERGY: 100 | ENERGY REGEN: 5.0 / s\n" +
 		ability_txt + "\n\n" +
-		arms_txt
+		arms_txt + "\n\n" +
+		legs_txt
 	)
 
 func _on_enter_pressed() -> void:
