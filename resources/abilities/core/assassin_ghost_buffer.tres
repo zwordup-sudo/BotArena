@@ -6,9 +6,12 @@
 script = ExtResource("1_script")
 id = "assassin_ghost_buffer"
 display_name = "Ghost Buffer"
-description = "Absorbs the next two hostile projectile hits during a short ingress window."
+description = "Blocking ingress tool. Defeating an enemy during the Execution Window refreshes its cooldown once. Energy is not refunded."
 energy_cost = 35.0
 cooldown = 7.0
 duration = 1.5
 effect_type = 9
 projectile_guard_charges = 2
+kill_refresh_window = 3.0
+refresh_own_cooldown_on_kill = true
+maximum_refreshes_per_activation = 1

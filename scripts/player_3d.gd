@@ -112,6 +112,8 @@ var projectile_evasion_timer: float = 0.0
 
 # Ghost Buffer guard charges (Assassin Core)
 var ghost_buffer_charges: int = 0
+var execution_refresh_window_timer: float = 0.0
+var execution_refresh_triggered_this_activation: bool = false
 
 var current_build_name: String = "BALANCED"
 
@@ -184,6 +186,8 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	is_evading_projectiles = false
 	projectile_evasion_timer = 0.0
 	ghost_buffer_charges = 0
+	execution_refresh_window_timer = 0.0
+	execution_refresh_triggered_this_activation = false
 	
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -351,6 +355,10 @@ func _process(delta: float) -> void:
 		if core_duration_timer <= 0.0:
 			end_core_ability()
 			
+	# Update execution refresh window timer
+	if execution_refresh_window_timer > 0.0:
+		execution_refresh_window_timer -= delta
+			
 	# Update evasion window timer
 	if is_evading_projectiles:
 		projectile_evasion_timer -= delta
@@ -516,6 +524,8 @@ func start_ghost_buffer(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
 	ghost_buffer_charges = ability.projectile_guard_charges
+	execution_refresh_window_timer = ability.kill_refresh_window
+	execution_refresh_triggered_this_activation = false
 	
 	update_mesh_color()
 
@@ -527,6 +537,13 @@ func deduct_ghost_buffer_charge() -> void:
 			end_core_ability()
 		else:
 			update_mesh_color()
+
+func notify_kill(target: Node) -> void:
+	if execution_refresh_window_timer > 0.0 and not execution_refresh_triggered_this_activation:
+		core_cooldown_timer = 0.0
+		execution_refresh_triggered_this_activation = true
+		execution_refresh_window_timer = 0.0
+		print("Execution Refresh Window: Target ", target.name, " defeated. Core cooldown immediately refreshed!")
 
 func end_core_ability() -> void:
 	is_core_active = false
@@ -552,6 +569,12 @@ func activate_arms_ability() -> void:
 	var ability = bot_build.arms.active_ability as AbilityData
 	if not ability:
 		return
+		
+	var effect_type = ability.effect_type
+	if effect_type == 11: # EXECUTION_RUSH (Assassin E)
+		execute_execution_rush(ability)
+		return
+		
 	if arms_cooldown_timer > 0.0:
 		return
 	if current_energy < ability.energy_cost:
@@ -560,7 +583,6 @@ func activate_arms_ability() -> void:
 	current_energy -= ability.energy_cost
 	arms_cooldown_timer = ability.cooldown
 	
-	var effect_type = ability.effect_type
 	if effect_type == 3: # BURST_VOLLEY
 		execute_burst_volley(ability)
 	elif effect_type == 4: # TWIN_STREAM
@@ -585,6 +607,7 @@ func execute_burst_volley(ability: AbilityData) -> void:
 
 func fire_burst_projectile(dmg_mult: float) -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
+	proj.source_actor = self
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
@@ -630,6 +653,7 @@ func fire_charged_shot() -> void:
 		return
 	
 	var proj = PROJECTILE_SCENE.instantiate()
+	proj.source_actor = self
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
@@ -647,6 +671,79 @@ func fire_charged_shot() -> void:
 	proj.speed = projectile_speed * ability.projectile_speed_multiplier
 	proj.can_be_intercepted = true
 	proj.interception_durability = 2
+
+func execute_execution_rush(ability: AbilityData) -> void:
+	if current_energy < ability.energy_cost or arms_cooldown_timer > 0.0:
+		return
+		
+	# Search for valid candidate targets inside cone and target_range
+	var space_state = get_world_3d().direct_space_state
+	var eq = PhysicsShapeQueryParameters3D.new()
+	var esph = SphereShape3D.new()
+	esph.radius = ability.target_range
+	eq.shape = esph
+	eq.transform = global_transform
+	eq.exclude = [get_rid()]
+	eq.collide_with_areas = true
+	eq.collide_with_bodies = true
+	
+	var candidates = space_state.intersect_shape(eq)
+	var best_target: Node3D = null
+	var best_angle: float = 999.0
+	
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	for cand in candidates:
+		var body = cand.collider
+		if is_instance_valid(body) and body.has_method("take_damage"):
+			var diff = body.global_position - global_position
+			diff.y = 0.0
+			var d = diff.length()
+			if d <= ability.target_range:
+				var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
+				if angle <= ability.target_cone_degrees / 2.0:
+					if angle < best_angle:
+						best_angle = angle
+						best_target = body
+						
+	# Fail safely if no target exists in aim cone
+	if not best_target:
+		print("NO EXECUTION TARGET")
+		return
+		
+	# Target exists: deduct cost and start cooldown
+	current_energy -= ability.energy_cost
+	arms_cooldown_timer = ability.cooldown
+	
+	# Close distance, stopping at 1.2 striking distance buffer
+	var diff_vec = best_target.global_position - global_position
+	diff_vec.y = 0.0
+	var distance = diff_vec.length()
+	var move_dist = distance - 1.2
+	
+	if move_dist > 0.0:
+		var move_vec = diff_vec.normalized() * move_dist
+		var collision = move_and_collide(move_vec)
+		
+	# Execute single strong melee strike against target
+	var arms_atk = bot_build.arms.primary_attack as PrimaryAttackData
+	var base_melee_dmg = projectile_damage
+	if arms_atk:
+		base_melee_dmg = projectile_damage * arms_atk.damage_multiplier
+		
+	var strike_dmg = base_melee_dmg * ability.strike_damage_multiplier
+	best_target.take_damage(strike_dmg, self)
+	
+	# Execute strike visual feedback
+	var visual_range = 2.25
+	var visual_arc = 90.0
+	if arms_atk:
+		visual_range = arms_atk.melee_range
+		visual_arc = arms_atk.melee_arc_degrees
+		
+	create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.2, 0.2, 0.8), 0.18)
 
 func activate_legs_ability() -> void:
 	if not bot_build or not bot_build.legs or not bot_build.legs.active_ability:
@@ -896,6 +993,8 @@ func update_canvas_hud() -> void:
 						core_status = ab_name + " - EVADE " + str(snapped(projectile_evasion_timer, 0.1)) + "s"
 					else:
 						core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
+				elif execution_refresh_window_timer > 0.0:
+					core_status = "EXECUTION WINDOW - " + str(snapped(execution_refresh_window_timer, 0.1)) + "s"
 				elif core_cooldown_timer > 0.0:
 					core_status = ab_name + " - " + str(snapped(core_cooldown_timer, 0.1)) + "s"
 				else:
@@ -994,6 +1093,7 @@ func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
 		fire_twin_projectile_from_scene(proj_scene, spread)
 	else:
 		var proj = proj_scene.instantiate()
+		proj.source_actor = self
 		var aim_dir = -aim_pivot.global_transform.basis.z
 		aim_dir.y = 0.0
 		aim_dir = aim_dir.normalized()
@@ -1009,6 +1109,7 @@ func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
 
 func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: float) -> void:
 	var proj = proj_scene.instantiate()
+	proj.source_actor = self
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
@@ -1070,6 +1171,46 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 		if best_target:
 			var move_vec = aim_dir * engage_dist
 			var collision = move_and_collide(move_vec)
+			
+	# Execute limited melee projectile interception (at most 1 projectile)
+	var intercept_limit = attack_data.projectile_interception_limit
+	var intercept_power = attack_data.projectile_interception_power
+	var intercept_range = attack_data.projectile_interception_range
+	
+	if intercept_limit > 0 and intercept_range > 0.0:
+		var space_state = get_world_3d().direct_space_state
+		var eq = PhysicsShapeQueryParameters3D.new()
+		var esph = SphereShape3D.new()
+		esph.radius = intercept_range
+		eq.shape = esph
+		eq.transform = global_transform
+		eq.exclude = [get_rid()]
+		eq.collide_with_areas = true
+		eq.collide_with_bodies = false # Projectiles are Areas
+		
+		var candidates = space_state.intersect_shape(eq)
+		var best_proj: Area3D = null
+		var best_proj_dist: float = 999.0
+		
+		for cand in candidates:
+			var proj_area = cand.collider as Area3D
+			if is_instance_valid(proj_area) and proj_area.is_in_group("hostile_projectile") and proj_area.get("can_be_intercepted") == true:
+				var diff = proj_area.global_position - global_position
+				diff.y = 0.0
+				var d = diff.length()
+				if d <= intercept_range:
+					var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
+					if angle <= arc_deg / 2.0:
+						if d < best_proj_dist:
+							best_proj_dist = d
+							best_proj = proj_area
+							
+		if best_proj:
+			# Subtract durability based on interception power
+			for i in range(intercept_power):
+				if is_instance_valid(best_proj) and best_proj.has_method("take_interception_hit"):
+					best_proj.take_interception_hit()
+			print("Melee Intercepted hostile projectile: ", best_proj.name)
 			
 	# One-shot physics query including areas (enemies and target dummy are Area3Ds)
 	var space_state = get_world_3d().direct_space_state
@@ -1136,7 +1277,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 			print("  Inside arc: ", inside_arc)
 			
 			if inside_range and inside_arc:
-				collider.take_damage(final_dmg)
+				collider.take_damage(final_dmg, self)
 				print("  Damage applied: ", final_dmg)
 			else:
 				print("  Damage applied: 0")
@@ -1199,7 +1340,7 @@ func create_melee_visual_custom(range_val: float, arc_deg: float, color: Color, 
 	tween.tween_property(mat, "albedo_color:a", 0.0, duration)
 	tween.tween_callback(mesh_instance.queue_free)
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, source: Node = null) -> void:
 	var final_dmg = amount * incoming_damage_multiplier
 	current_health = clamp(current_health - final_dmg, 0.0, max_health)
 	print("Player3D remaining health: ", int(current_health))

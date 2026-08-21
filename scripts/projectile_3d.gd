@@ -7,6 +7,7 @@ extends Area3D
 @export var interception_durability: int = 1
 
 var direction: Vector3 = Vector3.FORWARD
+var source_actor: Node = null
 
 func _ready() -> void:
 	direction = Vector3(direction.x, 0.0, direction.z).normalized()
@@ -23,7 +24,7 @@ func _physics_process(delta: float) -> void:
 
 func _on_area_entered(area: Area3D) -> void:
 	if area.has_method("take_damage"):
-		area.take_damage(damage)
+		area.take_damage(damage, source_actor)
 		if not is_queued_for_deletion():
 			queue_free()
 	elif area.get("can_be_intercepted") == true:
@@ -32,7 +33,7 @@ func _on_area_entered(area: Area3D) -> void:
 
 func _on_body_entered(body: Node3D) -> void:
 	if body.has_method("take_damage"):
-		body.take_damage(damage)
+		body.take_damage(damage, source_actor)
 		if not is_queued_for_deletion():
 			queue_free()
 

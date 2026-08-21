@@ -108,12 +108,14 @@ func transition_to(new_state: State) -> void:
 		State.RECOVERY:
 			mesh_instance.material_override = normal_material
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, source: Node = null) -> void:
 	if is_dead:
 		return
 	current_health = clamp(current_health - amount, 0.0, max_health)
 	print("EnemyCharger3D remaining health: ", int(current_health))
 	if current_health <= 0.0:
+		if source and source.has_method("notify_kill"):
+			source.notify_kill(self)
 		die()
 
 func die() -> void:

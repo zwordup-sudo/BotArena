@@ -27,3 +27,8 @@ enum AttackType {
 # Combo configuration fields
 @export var combo_multipliers: Array[float] = []
 @export var combo_reset_time: float = 0.0
+
+# Role Lab 0.2 Projectile Interception fields
+@export var projectile_interception_limit: int = 0
+@export var projectile_interception_power: int = 0
+@export var projectile_interception_range: float = 0.0

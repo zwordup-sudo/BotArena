@@ -52,12 +52,14 @@ func shoot() -> void:
 		proj.global_position = origin_pos
 		proj.direction = dir
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, source: Node = null) -> void:
 	if is_dead:
 		return
 	current_health = clamp(current_health - amount, 0.0, max_health)
 	print(name, " remaining health: ", int(current_health))
 	if current_health <= 0.0:
+		if source and source.has_method("notify_kill"):
+			source.notify_kill(self)
 		die()
 
 func die() -> void:

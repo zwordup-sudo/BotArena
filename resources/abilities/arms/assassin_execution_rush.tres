@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "assassin_execution_rush"
+display_name = "Execution Rush"
+description = "Rush toward a targeted enemy in your aim cone and deliver a powerful melee strike."
+energy_cost = 35.0
+cooldown = 7.0
+duration = 0.0
+effect_type = 11
+target_range = 4.5
+target_cone_degrees = 35.0
+strike_damage_multiplier = 1.75

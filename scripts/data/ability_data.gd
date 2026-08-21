@@ -12,7 +12,8 @@ enum EffectType {
 	PHASE_BLINK,
 	ROCKET_LUNGE,
 	GHOST_BUFFER,
-	RECOIL_STEP
+	RECOIL_STEP,
+	EXECUTION_RUSH
 }
 
 @export var id: String = ""
@@ -60,3 +61,11 @@ enum EffectType {
 
 # Role Lab 0.1 configuration fields
 @export var projectile_guard_charges: int = 0
+
+# Role Lab 0.2 configuration fields
+@export var kill_refresh_window: float = 0.0
+@export var refresh_own_cooldown_on_kill: bool = false
+@export var maximum_refreshes_per_activation: int = 0
+@export var target_range: float = 0.0
+@export var target_cone_degrees: float = 0.0
+@export var strike_damage_multiplier: float = 1.0
