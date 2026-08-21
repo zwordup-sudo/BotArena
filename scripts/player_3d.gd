@@ -53,13 +53,28 @@ var dash_cooldown_timer: float = 0.0
 var dash_direction: Vector3 = Vector3.ZERO
 
 func _ready() -> void:
-	if not bot_build:
-		bot_build = BALANCED_BUILD
-	recalculate_stats()
-	current_health = max_health
-	
-	# Trigger initial console print & debug UI update
-	apply_build(bot_build, "BALANCED")
+	# Load existing selection from autoload GameSession if available
+	var saved_build = GameSession.get_selected_build() if has_node("/root/GameSession") else null
+	if saved_build:
+		bot_build = saved_build
+		
+		# Identify preset build names for UI convenience
+		var build_name = "CUSTOM"
+		var c = bot_build.core
+		var a = bot_build.arms
+		var l = bot_build.legs
+		if c.id == "standard_core" and a.id == "standard_arms" and l.id == "standard_legs":
+			build_name = "BALANCED"
+		elif c.id == "light_core" and a.id == "rapid_arms" and l.id == "light_legs":
+			build_name = "SCOUT"
+		elif c.id == "heavy_core" and a.id == "heavy_arms" and l.id == "heavy_legs":
+			build_name = "HEAVY"
+			
+		apply_build(bot_build, build_name)
+	else:
+		if not bot_build:
+			bot_build = BALANCED_BUILD
+		apply_build(bot_build, "BALANCED")
 
 func recalculate_stats() -> void:
 	if bot_build:
@@ -79,7 +94,7 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	recalculate_stats()
 	current_health = max_health
 	
-	# Update index track if we loaded a preset directly
+	# Update index track if we loaded a preset
 	if build_name == "BALANCED":
 		core_idx = 0; arms_idx = 0; legs_idx = 0
 	elif build_name == "SCOUT":
@@ -131,16 +146,28 @@ func apply_custom_build() -> void:
 	custom_build.arms = arms_list[arms_idx]
 	custom_build.legs = legs_list[legs_idx]
 	apply_build(custom_build, "CUSTOM")
+	
+	# Keep GameSession updated with active custom debug selection
+	if has_node("/root/GameSession"):
+		GameSession.set_selected_build(custom_build)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
+			KEY_ESCAPE:
+				get_tree().change_scene_to_file("res://scenes/loadout_3d.tscn")
 			KEY_1:
 				apply_build(BALANCED_BUILD, "BALANCED")
+				if has_node("/root/GameSession"):
+					GameSession.set_selected_build(BALANCED_BUILD)
 			KEY_2:
 				apply_build(SCOUT_BUILD, "SCOUT")
+				if has_node("/root/GameSession"):
+					GameSession.set_selected_build(SCOUT_BUILD)
 			KEY_3:
 				apply_build(HEAVY_BUILD, "HEAVY")
+				if has_node("/root/GameSession"):
+					GameSession.set_selected_build(HEAVY_BUILD)
 			KEY_4:
 				core_idx = (core_idx + 1) % core_list.size()
 				apply_custom_build()

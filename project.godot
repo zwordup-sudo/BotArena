@@ -12,11 +12,13 @@ config_version=5
 
 config/name="BotArena"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+run/main_scene="res://scenes/loadout_3d.tscn"
 config/icon="res://icon.svg"
 
 [autoload]
 
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+GameSession="*res://scripts/game_session.gd"
 
 [display]
 
