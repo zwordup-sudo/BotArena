@@ -1,5 +1,8 @@
 extends CharacterBody3D
 
+@export var max_health: float = 100.0
+@onready var current_health: float = max_health
+
 @export var speed: float = 6.0
 @export var fire_rate: float = 2.5
 
@@ -98,6 +101,16 @@ func shoot() -> void:
 	# Set position using Muzzle's current global position
 	proj.global_position = muzzle.global_position
 	proj.direction = aim_dir
+
+func take_damage(amount: float) -> void:
+	current_health = clamp(current_health - amount, 0.0, max_health)
+	print("Player3D remaining health: ", int(current_health))
+	if current_health <= 0.0:
+		die()
+
+func die() -> void:
+	print("Player3D defeated")
+	get_tree().call_deferred("reload_current_scene")
 
 func aim_to_mouse() -> void:
 	var camera := get_viewport().get_camera_3d()

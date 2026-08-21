@@ -1,0 +1,28 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_shooter_3d.gd" id="1_shooter3d"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_shooter"]
+size = Vector3(0.9, 0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shooter"]
+albedo_color = Color(0.85, 0.1, 0.25, 1)
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_shooter"]
+size = Vector3(0.9, 0.9, 0.9)
+
+[node name="EnemyShooter3D" type="Area3D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_shooter3d")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_shooter")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+material_override = SubResource("StandardMaterial3D_shooter")
+mesh = SubResource("BoxMesh_shooter")
+
+[node name="Muzzle" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.55)
