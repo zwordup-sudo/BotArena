@@ -3,6 +3,7 @@ extends Area3D
 @export var fire_rate: float = 1.0
 @export var max_health: float = 100.0
 @export var respawn_delay: float = 4.0
+@export var initial_fire_delay: float = 0.0
 
 # Preload hostile projectile
 const HOSTILE_PROJECTILE = preload("res://scenes/enemy_projectile_3d.tscn")
@@ -13,14 +14,22 @@ const HOSTILE_PROJECTILE = preload("res://scenes/enemy_projectile_3d.tscn")
 
 var fire_timer: float = 0.0
 var is_dead: bool = false
+var has_fired_initial: bool = false
 
 func _process(delta: float) -> void:
 	if is_dead:
 		return
+		
 	fire_timer += delta
-	if fire_timer >= 1.0 / fire_rate:
-		fire_timer = 0.0
-		shoot()
+	if not has_fired_initial:
+		if fire_timer >= initial_fire_delay:
+			fire_timer = 0.0
+			has_fired_initial = true
+			shoot()
+	else:
+		if fire_timer >= 1.0 / fire_rate:
+			fire_timer = 0.0
+			shoot()
 
 func shoot() -> void:
 	var player = get_parent().get_node_or_null("Player3D")
@@ -47,7 +56,7 @@ func take_damage(amount: float) -> void:
 	if is_dead:
 		return
 	current_health = clamp(current_health - amount, 0.0, max_health)
-	print("EnemyShooter3D remaining health: ", int(current_health))
+	print(name, " remaining health: ", int(current_health))
 	if current_health <= 0.0:
 		die()
 
@@ -67,3 +76,4 @@ func respawn() -> void:
 	process_mode = PROCESS_MODE_INHERIT
 	is_dead = false
 	fire_timer = 0.0
+	has_fired_initial = false
