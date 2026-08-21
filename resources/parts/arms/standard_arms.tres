@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_partdata"]
+
+[resource]
+script = ExtResource("1_partdata")
+id = "standard_arms"
+display_name = "Standard Arms"
+slot = 1
+system = "Standard"
+max_health = 0.0
+fire_rate = 2.25
+projectile_damage = 25.0
+movement_speed = 0.0
+dash_speed = 0.0
+dash_duration = 0.0
+dash_cooldown = 0.0

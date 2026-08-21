@@ -1,0 +1,31 @@
+extends Resource
+
+@export var core: Resource:
+	set(val):
+		if val and val.get("slot") != 0: # 0 is Slot.CORE
+			push_error("BotBuild validation error: Attempted to assign non-CORE part to core slot.")
+			return
+		core = val
+
+@export var arms: Resource:
+	set(val):
+		if val and val.get("slot") != 1: # 1 is Slot.ARMS
+			push_error("BotBuild validation error: Attempted to assign non-ARMS part to arms slot.")
+			return
+		arms = val
+
+@export var legs: Resource:
+	set(val):
+		if val and val.get("slot") != 2: # 2 is Slot.LEGS
+			push_error("BotBuild validation error: Attempted to assign non-LEGS part to legs slot.")
+			return
+		legs = val
+
+func validate_build() -> bool:
+	if core and core.get("slot") != 0:
+		return false
+	if arms and arms.get("slot") != 1:
+		return false
+	if legs and legs.get("slot") != 2:
+		return false
+	return true

@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/target_dummy_3d.tscn" id="2_dummy3d"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_shooter_3d.tscn" id="3_shooter3d"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_charger_3d.tscn" id="4_charger3d"]
+[ext_resource type="Resource" path="res://resources/builds/balanced_build.tres" id="5_botbuild"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
 albedo_color = Color(0.12, 0.12, 0.12, 1)
@@ -131,6 +132,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0, 0.325, 3.0)
 [node name="Player3D" type="CharacterBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 script = ExtResource("1_player3d")
+bot_build = ExtResource("5_botbuild")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/Player3D"]
 shape = SubResource("BoxShape3D_player")
@@ -155,3 +157,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.7)
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 17.0, 17.0)
 projection = 1
 size = 26.0
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="DebugLabel" type="Label" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 250.0
+offset_bottom = 50.0
+theme_override_colors/font_color = Color(1, 1, 0, 1)
+text = "BUILD: BALANCED"
