@@ -145,6 +145,20 @@ func update_build_and_preview() -> void:
 		ability_txt = "CORE ABILITY: " + ab.display_name + "\n" + \
 			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration: " + dur_str + "\n" + \
 			ab.description
+			
+	# Arms active ability summary
+	var arms_txt = "ARMS ABILITY: None"
+	if current_build.arms and current_build.arms.active_ability:
+		var ab = current_build.arms.active_ability
+		var dur_str = "N/A"
+		if ab.duration > 0.0:
+			dur_str = str(ab.duration) + "s"
+		elif ab.charge_time > 0.0:
+			dur_str = "Charge: " + str(ab.charge_time) + "s"
+			
+		arms_txt = "ARMS ABILITY: " + ab.display_name + "\n" + \
+			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration/Charge: " + dur_str + "\n" + \
+			ab.description
 	
 	stats_label.text = (
 		"BUILD: " + build_name + stress_txt + "\n" +
@@ -153,7 +167,8 @@ func update_build_and_preview() -> void:
 		"THEORETICAL DPS: " + str(snapped(dps, 0.1)) + "\n\n" +
 		"POWER: " + power_txt + " | WEIGHT: " + weight_txt + " | THERMAL: " + thermal_txt + "\n\n" +
 		"ENERGY: 100 | ENERGY REGEN: 5.0 / s\n" +
-		ability_txt
+		ability_txt + "\n\n" +
+		arms_txt
 	)
 
 func _on_enter_pressed() -> void:

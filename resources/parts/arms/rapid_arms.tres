@@ -1,9 +1,10 @@
-[gd_resource type="Resource" script_class="PartData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_partdata"]
+[ext_resource type="Resource" path="res://resources/abilities/arms/rapid_suppressive_fire.tres" id="1_ability"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_partdata"]
 
 [resource]
-script = ExtResource("1_partdata")
+script = ExtResource("2_partdata")
 id = "rapid_arms"
 display_name = "Rapid Arms"
 slot = 1
@@ -19,3 +20,4 @@ dash_duration_pct = 0.0
 power_cost = 40.0
 weight_cost = 20.0
 thermal_load = 60.0
+active_ability = ExtResource("1_ability")

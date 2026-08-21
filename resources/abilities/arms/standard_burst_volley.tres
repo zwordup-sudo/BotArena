@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_ability"]
+
+[resource]
+script = ExtResource("1_ability")
+id = "standard_burst_volley"
+display_name = "Burst Volley"
+description = "Fires exactly 3 shots (100 ms interval) at 70% damage each."
+energy_cost = 30.0
+cooldown = 5.0
+duration = 0.0
+effect_type = 3
+pulse_radius = 0.0
+movement_speed_pct = 0.0
+dash_speed_pct = 0.0
+incoming_damage_multiplier = 1.0
+projectile_count = 3
+shot_interval = 0.10
+projectile_damage_multiplier = 0.70
+fire_rate_multiplier = 1.0
+charge_time = 0.0
+projectile_size_multiplier = 1.0
+projectile_speed_multiplier = 1.0

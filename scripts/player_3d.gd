@@ -53,20 +53,35 @@ var dash_timer: float = 0.0
 var dash_cooldown_timer: float = 0.0
 var dash_direction: Vector3 = Vector3.ZERO
 
-# Energy System
+# Energy System (Shared combat resource)
 var max_energy: float = 100.0
 var energy_regen_per_second: float = 5.0
 var current_energy: float = 100.0
 
-# Temporary Active Ability Stat Modifiers
-var temporary_speed_mod: float = 0.0
-var temporary_dash_speed_mod: float = 0.0
+# Core Active Ability temporary stats modifiers
+var core_temp_speed_mod: float = 0.0
+var core_temp_dash_speed_mod: float = 0.0
 var incoming_damage_multiplier: float = 1.0
 
-# Active Ability State
-var cooldown_timer: float = 0.0
-var duration_timer: float = 0.0
-var is_ability_active: bool = false
+# Arms Active Ability temporary stats modifiers
+var arms_temp_fire_rate_multiplier: float = 1.0
+var arms_temp_projectile_damage_multiplier: float = 1.0
+
+# Independent Core Ability State (Q)
+var core_cooldown_timer: float = 0.0
+var core_duration_timer: float = 0.0
+var is_core_active: bool = false
+
+# Independent Arms Ability State (E)
+var arms_cooldown_timer: float = 0.0
+var arms_duration_timer: float = 0.0
+var is_arms_active: bool = false
+
+# Arms ability execution block parameters
+var is_burst_volley_active: bool = false
+var is_charged_shot_charging: bool = false
+var charged_shot_charge_timer: float = 0.0
+
 var current_build_name: String = "BALANCED"
 
 func _ready() -> void:
@@ -97,12 +112,14 @@ func recalculate_stats() -> void:
 	if bot_build:
 		var calc = load("res://scripts/data/bot_stat_calculator.gd").calculate(bot_build)
 		max_health = calc.max_health
-		speed = calc.movement_speed * (1.0 + temporary_speed_mod)
-		fire_rate = calc.fire_rate
-		projectile_damage = calc.projectile_damage
+		
+		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp
+		speed = calc.movement_speed * (1.0 + core_temp_speed_mod)
+		fire_rate = calc.fire_rate * arms_temp_fire_rate_multiplier
+		projectile_damage = calc.projectile_damage * arms_temp_projectile_damage_multiplier
 		projectile_speed = calc.projectile_speed
 		
-		dash_speed = calc.dash_speed * (1.0 + temporary_dash_speed_mod)
+		dash_speed = calc.dash_speed * (1.0 + core_temp_dash_speed_mod)
 		dash_duration = calc.dash_duration
 		dash_cooldown = calc.dash_cooldown
 
@@ -111,16 +128,30 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	current_build_name = build_name
 	
 	# Clear temporary stat overrides
-	is_ability_active = false
-	temporary_speed_mod = 0.0
-	temporary_dash_speed_mod = 0.0
+	is_core_active = false
+	core_temp_speed_mod = 0.0
+	core_temp_dash_speed_mod = 0.0
 	incoming_damage_multiplier = 1.0
-	cooldown_timer = 0.0
-	duration_timer = 0.0
+	core_cooldown_timer = 0.0
+	core_duration_timer = 0.0
+	
+	is_arms_active = false
+	arms_temp_fire_rate_multiplier = 1.0
+	arms_temp_projectile_damage_multiplier = 1.0
+	arms_cooldown_timer = 0.0
+	arms_duration_timer = 0.0
+	
+	is_burst_volley_active = false
+	is_charged_shot_charging = false
+	charged_shot_charge_timer = 0.0
+	
 	current_energy = max_energy
 	
 	recalculate_stats()
 	current_health = max_health
+	
+	# Update mesh visual shader override
+	update_mesh_color()
 	
 	# Update index track if we loaded a preset
 	if build_name == "BALANCED":
@@ -234,22 +265,38 @@ func _process(delta: float) -> void:
 	# Energy Regeneration
 	current_energy = clamp(current_energy + energy_regen_per_second * delta, 0.0, max_energy)
 	
-	# Ability Cooldown tracking
-	if cooldown_timer > 0.0:
-		cooldown_timer -= delta
-		
-	# Ability Duration tracking
-	if is_ability_active:
-		duration_timer -= delta
-		if duration_timer <= 0.0:
-			end_ability()
+	# Independent Core Ability Cooldown and Duration tracking
+	if core_cooldown_timer > 0.0:
+		core_cooldown_timer -= delta
+	if is_core_active:
+		core_duration_timer -= delta
+		if core_duration_timer <= 0.0:
+			end_core_ability()
 			
-	# Trigger core ability
+	# Independent Arms Ability Cooldown and Duration tracking
+	if arms_cooldown_timer > 0.0:
+		arms_cooldown_timer -= delta
+	if is_arms_active:
+		arms_duration_timer -= delta
+		if arms_duration_timer <= 0.0:
+			end_arms_ability()
+			
+	# Charged Shot Charge Timer tracking
+	if is_charged_shot_charging:
+		charged_shot_charge_timer -= delta
+		if charged_shot_charge_timer <= 0.0:
+			fire_charged_shot()
+			
+	# Trigger core ability (Q)
 	if Input.is_action_just_pressed("core_ability"):
-		activate_ability()
+		activate_core_ability()
 		
-	# Primary Attack (Continuous fire)
-	if Input.is_action_pressed("attack_primary"):
+	# Trigger arms ability (E)
+	if Input.is_action_just_pressed("arms_ability"):
+		activate_arms_ability()
+		
+	# Primary Attack (Continuous fire) - Disabled during Burst Volley and Charged Shot Charging
+	if Input.is_action_pressed("attack_primary") and not is_burst_volley_active and not is_charged_shot_charging:
 		if fire_cooldown_timer <= 0.0:
 			shoot()
 			fire_cooldown_timer = 1.0 / fire_rate
@@ -257,32 +304,28 @@ func _process(delta: float) -> void:
 	# Update Canvas HUD
 	update_canvas_hud()
 
-func activate_ability() -> void:
+func activate_core_ability() -> void:
 	if not bot_build or not bot_build.core or not bot_build.core.active_ability:
 		return
 	var ability = bot_build.core.active_ability
-	if cooldown_timer > 0.0:
+	if core_cooldown_timer > 0.0:
 		return
 	if current_energy < ability.energy_cost:
 		return
 		
-	# Consume energy and trigger cooldown
 	current_energy -= ability.energy_cost
-	cooldown_timer = ability.cooldown
+	core_cooldown_timer = ability.cooldown
 	
 	var effect_type = ability.get("effect_type")
 	if effect_type == 0: # PULSE_INTERCEPT
 		execute_pulse(ability.pulse_radius)
 	elif effect_type == 1: # TEMPORARY_STAT_MODIFIER
-		start_stat_modifier(ability)
+		start_core_stat_modifier(ability)
 	elif effect_type == 2: # DAMAGE_REDUCTION
-		start_damage_reduction(ability)
+		start_core_damage_reduction(ability)
 
 func execute_pulse(radius: float) -> void:
-	# Visual ring effect
 	create_pulse_visual(radius)
-	
-	# Find hostile projectiles in group
 	var project_group = get_tree().get_nodes_in_group("hostile_projectile")
 	for proj in project_group:
 		if is_instance_valid(proj) and proj.get("can_be_intercepted") == true:
@@ -306,48 +349,169 @@ func create_pulse_visual(radius: float) -> void:
 	get_parent().add_child(mesh_instance)
 	mesh_instance.global_position = global_position
 	
-	# Scale animation
 	mesh_instance.scale = Vector3.ZERO
 	var tween = create_tween()
 	tween.tween_property(mesh_instance, "scale", Vector3.ONE, 0.25)
 	tween.tween_callback(mesh_instance.queue_free)
 
-func start_stat_modifier(ability: Resource) -> void:
-	is_ability_active = true
-	duration_timer = ability.duration
-	temporary_speed_mod = ability.movement_speed_pct
-	temporary_dash_speed_mod = ability.dash_speed_pct
+func start_core_stat_modifier(ability: Resource) -> void:
+	is_core_active = true
+	core_duration_timer = ability.duration
+	core_temp_speed_mod = ability.movement_speed_pct
+	core_temp_dash_speed_mod = ability.dash_speed_pct
 	
-	# Cyan color shader indication
-	var active_mat = StandardMaterial3D.new()
-	active_mat.albedo_color = Color(0.2, 0.9, 0.9)
-	active_mat.roughness = 0.4
-	aim_pivot.get_node("BodyMesh").material_override = active_mat
-	
+	update_mesh_color()
 	recalculate_stats()
 
-func start_damage_reduction(ability: Resource) -> void:
-	is_ability_active = true
-	duration_timer = ability.duration
-	temporary_speed_mod = ability.movement_speed_pct
+func start_core_damage_reduction(ability: Resource) -> void:
+	is_core_active = true
+	core_duration_timer = ability.duration
+	core_temp_speed_mod = ability.movement_speed_pct
 	incoming_damage_multiplier = ability.incoming_damage_multiplier
 	
-	# Steel/Yellow color shader indication
-	var active_mat = StandardMaterial3D.new()
-	active_mat.albedo_color = Color(0.9, 0.7, 0.1)
-	active_mat.roughness = 0.2
-	aim_pivot.get_node("BodyMesh").material_override = active_mat
-	
+	update_mesh_color()
 	recalculate_stats()
 
-func end_ability() -> void:
-	is_ability_active = false
-	temporary_speed_mod = 0.0
-	temporary_dash_speed_mod = 0.0
+func end_core_ability() -> void:
+	is_core_active = false
+	core_temp_speed_mod = 0.0
+	core_temp_dash_speed_mod = 0.0
 	incoming_damage_multiplier = 1.0
 	
-	aim_pivot.get_node("BodyMesh").material_override = null
+	update_mesh_color()
 	recalculate_stats()
+
+func activate_arms_ability() -> void:
+	if not bot_build or not bot_build.arms or not bot_build.arms.active_ability:
+		return
+	var ability = bot_build.arms.active_ability
+	if arms_cooldown_timer > 0.0:
+		return
+	if current_energy < ability.energy_cost:
+		return
+		
+	current_energy -= ability.energy_cost
+	arms_cooldown_timer = ability.cooldown
+	
+	var effect_type = ability.get("effect_type")
+	if effect_type == 3: # BURST_VOLLEY
+		execute_burst_volley(ability)
+	elif effect_type == 4: # SUPPRESSIVE_FIRE
+		start_arms_suppressive_fire(ability)
+	elif effect_type == 5: # CHARGED_SHOT
+		start_arms_charged_shot(ability)
+
+func execute_burst_volley(ability: Resource) -> void:
+	is_burst_volley_active = true
+	var count = ability.projectile_count
+	var interval = ability.shot_interval
+	var dmg_mult = ability.projectile_damage_multiplier
+	
+	for i in range(count):
+		if not is_inside_tree():
+			return
+		fire_burst_projectile(dmg_mult)
+		if i < count - 1:
+			await get_tree().create_timer(interval).timeout
+			
+	is_burst_volley_active = false
+
+func fire_burst_projectile(dmg_mult: float) -> void:
+	var proj = PROJECTILE_SCENE.instantiate()
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+	if projectiles_node:
+		projectiles_node.add_child(proj)
+		
+	proj.global_position = muzzle.global_position
+	proj.direction = aim_dir
+	# Deals modifier % of dynamic projectile_damage
+	proj.damage = projectile_damage * dmg_mult
+	proj.speed = projectile_speed
+
+func start_arms_suppressive_fire(ability: Resource) -> void:
+	is_arms_active = true
+	arms_duration_timer = ability.duration
+	arms_temp_fire_rate_multiplier = ability.fire_rate_multiplier
+	arms_temp_projectile_damage_multiplier = ability.projectile_damage_multiplier
+	
+	update_mesh_color()
+	recalculate_stats()
+
+func end_arms_ability() -> void:
+	is_arms_active = false
+	arms_temp_fire_rate_multiplier = 1.0
+	arms_temp_projectile_damage_multiplier = 1.0
+	
+	update_mesh_color()
+	recalculate_stats()
+
+func start_arms_charged_shot(ability: Resource) -> void:
+	is_charged_shot_charging = true
+	charged_shot_charge_timer = ability.charge_time
+	
+	update_mesh_color()
+
+func fire_charged_shot() -> void:
+	is_charged_shot_charging = false
+	update_mesh_color()
+	
+	if not bot_build or not bot_build.arms or not bot_build.arms.active_ability:
+		return
+	var ability = bot_build.arms.active_ability
+	
+	var proj = PROJECTILE_SCENE.instantiate()
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	# Scale projectile visual/collision bounds dynamically
+	var scale_factor = ability.projectile_size_multiplier
+	proj.scale = Vector3(scale_factor, scale_factor, scale_factor)
+	
+	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+	if projectiles_node:
+		projectiles_node.add_child(proj)
+		
+	proj.global_position = muzzle.global_position
+	proj.direction = aim_dir
+	# Scaled projectile damage and speed from dynamic current effective build stats
+	proj.damage = projectile_damage * ability.projectile_damage_multiplier
+	proj.speed = projectile_speed * ability.projectile_speed_multiplier
+	proj.can_be_intercepted = true
+
+func update_mesh_color() -> void:
+	var mesh = aim_pivot.get_node_or_null("BodyMesh")
+	if not mesh:
+		return
+		
+	if is_charged_shot_charging:
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.6, 0.2, 1.0)
+		mat.roughness = 0.2
+		mesh.material_override = mat
+	elif is_arms_active: # Suppressive Fire
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(1.0, 0.2, 0.6)
+		mat.roughness = 0.4
+		mesh.material_override = mat
+	elif is_core_active:
+		var ability_type = bot_build.core.active_ability.effect_type
+		if ability_type == 1: # Overclock (Cyan)
+			var mat = StandardMaterial3D.new()
+			mat.albedo_color = Color(0.2, 0.9, 0.9)
+			mat.roughness = 0.4
+			mesh.material_override = mat
+		elif ability_type == 2: # Fortify (Gold)
+			var mat = StandardMaterial3D.new()
+			mat.albedo_color = Color(0.9, 0.7, 0.1)
+			mat.roughness = 0.2
+			mesh.material_override = mat
+	else:
+		mesh.material_override = null
 
 func update_canvas_hud() -> void:
 	var label = get_tree().current_scene.get_node_or_null("CanvasLayer/DebugLabel")
@@ -356,17 +520,31 @@ func update_canvas_hud() -> void:
 		var arms_name = bot_build.arms.display_name if (bot_build and bot_build.arms) else "None"
 		var legs_name = bot_build.legs.display_name if (bot_build and bot_build.legs) else "None"
 		
-		# Format ability status
-		var ability_status = "NONE"
+		# Format Core ability status
+		var core_status = "NONE"
 		if bot_build and bot_build.core and bot_build.core.active_ability:
 			var ability = bot_build.core.active_ability
 			var ab_name = ability.display_name.to_upper()
-			if is_ability_active:
-				ability_status = ab_name + " - ACTIVE " + str(snapped(duration_timer, 0.1)) + "s"
-			elif cooldown_timer > 0.0:
-				ability_status = ab_name + " - " + str(snapped(cooldown_timer, 0.1)) + "s"
+			if is_core_active:
+				core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
+			elif core_cooldown_timer > 0.0:
+				core_status = ab_name + " - " + str(snapped(core_cooldown_timer, 0.1)) + "s"
 			else:
-				ability_status = ab_name + " - READY"
+				core_status = ab_name + " - READY"
+				
+		# Format Arms ability status
+		var arms_status = "NONE"
+		if bot_build and bot_build.arms and bot_build.arms.active_ability:
+			var ability = bot_build.arms.active_ability
+			var ab_name = ability.display_name.to_upper()
+			if is_charged_shot_charging:
+				arms_status = ab_name + " - CHARGING " + str(snapped(charged_shot_charge_timer, 0.1)) + "s"
+			elif is_arms_active:
+				arms_status = ab_name + " - ACTIVE " + str(snapped(arms_duration_timer, 0.1)) + "s"
+			elif arms_cooldown_timer > 0.0:
+				arms_status = ab_name + " - " + str(snapped(arms_cooldown_timer, 0.1)) + "s"
+			else:
+				arms_status = ab_name + " - READY"
 		
 		label.text = (
 			"BUILD: " + current_build_name + "\n" +
@@ -380,7 +558,8 @@ func update_canvas_hud() -> void:
 			"DASH SPEED: " + str(snapped(dash_speed, 0.1)) + "\n" +
 			"DASH CD: " + str(snapped(dash_cooldown, 0.01)) + "\n\n" +
 			"ENERGY: " + str(int(current_energy)) + " / 100\n" +
-			"Q: " + ability_status
+			"Q: " + core_status + "\n" +
+			"E: " + arms_status
 		)
 
 func start_dash() -> void:
@@ -400,18 +579,14 @@ func start_dash() -> void:
 
 func shoot() -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
-	
-	# Get aiming direction (forward is local -Z)
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
 	
-	# Add to Projectiles3D node first so its global space transforms are resolved relative to parent
 	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
 	if projectiles_node:
 		projectiles_node.add_child(proj)
 		
-	# Set position, dynamic projectile damage, and speed
 	proj.global_position = muzzle.global_position
 	proj.direction = aim_dir
 	proj.damage = projectile_damage

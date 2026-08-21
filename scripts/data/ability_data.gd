@@ -4,7 +4,10 @@ extends Resource
 enum EffectType {
 	PULSE_INTERCEPT,
 	TEMPORARY_STAT_MODIFIER,
-	DAMAGE_REDUCTION
+	DAMAGE_REDUCTION,
+	BURST_VOLLEY,
+	SUPPRESSIVE_FIRE,
+	CHARGED_SHOT
 }
 
 @export var id: String = ""
@@ -22,3 +25,12 @@ enum EffectType {
 @export var movement_speed_pct: float = 0.0
 @export var dash_speed_pct: float = 0.0
 @export var incoming_damage_multiplier: float = 1.0
+
+# Arms Ability configuration fields
+@export var projectile_count: int = 0
+@export var shot_interval: float = 0.0
+@export var projectile_damage_multiplier: float = 1.0
+@export var fire_rate_multiplier: float = 1.0
+@export var charge_time: float = 0.0
+@export var projectile_size_multiplier: float = 1.0
+@export var projectile_speed_multiplier: float = 1.0
