@@ -22,3 +22,7 @@ enum Slot { CORE, ARMS, LEGS }
 @export var power_cost: float = 0.0
 @export var weight_cost: float = 0.0
 @export var thermal_load: float = 0.0
+
+# Active Ability (Core only)
+@export var active_ability: Resource
+

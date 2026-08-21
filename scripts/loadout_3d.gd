@@ -136,15 +136,24 @@ func update_build_and_preview() -> void:
 	var stress_txt = ""
 	if calc.system_stress:
 		stress_txt = " | SYSTEM STRESS - Dash Cooldown +15%"
+		
+	# Core active ability summary
+	var ability_txt = "CORE ABILITY: None"
+	if current_build.core and current_build.core.active_ability:
+		var ab = current_build.core.active_ability
+		var dur_str = (str(ab.duration) + "s") if ab.duration > 0.0 else "N/A"
+		ability_txt = "CORE ABILITY: " + ab.display_name + "\n" + \
+			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration: " + dur_str + "\n" + \
+			ab.description
 	
 	stats_label.text = (
 		"BUILD: " + build_name + stress_txt + "\n" +
 		"HP: " + str(int(calc.max_health)) + " | MOVE: " + str(snapped(calc.movement_speed, 0.1)) + " | FIRE: " + str(snapped(calc.fire_rate, 0.01)) + " | DMG: " + str(int(calc.projectile_damage)) + "\n" +
 		"PROJ SPD: " + str(snapped(calc.projectile_speed, 0.1)) + " | DASH SPD: " + str(snapped(calc.dash_speed, 0.1)) + " | DASH CD: " + str(snapped(calc.dash_cooldown, 0.01)) + "\n" +
 		"THEORETICAL DPS: " + str(snapped(dps, 0.1)) + "\n\n" +
-		"POWER: " + power_txt + "\n" +
-		"WEIGHT: " + weight_txt + "\n" +
-		"THERMAL: " + thermal_txt
+		"POWER: " + power_txt + " | WEIGHT: " + weight_txt + " | THERMAL: " + thermal_txt + "\n\n" +
+		"ENERGY: 100 | ENERGY REGEN: 5.0 / s\n" +
+		ability_txt
 	)
 
 func _on_enter_pressed() -> void:

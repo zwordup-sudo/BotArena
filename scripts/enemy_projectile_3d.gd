@@ -8,6 +8,7 @@ extends Area3D
 var direction: Vector3 = Vector3.FORWARD
 
 func _ready() -> void:
+	add_to_group("hostile_projectile")
 	direction = Vector3(direction.x, 0.0, direction.z).normalized()
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)

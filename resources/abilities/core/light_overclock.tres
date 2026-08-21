@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_ability"]
+
+[resource]
+script = ExtResource("1_ability")
+id = "light_overclock"
+display_name = "Overclock"
+description = "Increases Movement Speed by 25% and Dash Speed by 20% for 2.25 seconds."
+energy_cost = 35.0
+cooldown = 6.0
+duration = 2.25
+effect_type = 1
+pulse_radius = 0.0
+movement_speed_pct = 0.25
+dash_speed_pct = 0.20
+incoming_damage_multiplier = 1.0
