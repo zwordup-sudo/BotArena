@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/player_3d.gd" id="1_player3d"]
+[ext_resource type="PackedScene" path="res://scenes/target_dummy_3d.tscn" id="2_dummy3d"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
 albedo_color = Color(0.12, 0.12, 0.12, 1)
@@ -106,6 +107,9 @@ material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_wall_tb")
 
 [node name="Projectiles3D" type="Node3D" parent="Arena3D"]
+
+[node name="TargetDummy3D" parent="Arena3D" instance=ExtResource("2_dummy3d")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 0.6, 0.0)
 
 [node name="Player3D" type="CharacterBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
