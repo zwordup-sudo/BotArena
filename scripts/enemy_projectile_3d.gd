@@ -23,6 +23,8 @@ func _physics_process(delta: float) -> void:
 	global_position += direction * speed * delta
 
 func _on_body_entered(body: Node3D) -> void:
+	if body.get("is_evading_projectiles") == true:
+		return
 	if body.has_method("take_damage"):
 		body.take_damage(damage)
 		if not is_queued_for_deletion():

@@ -6,7 +6,7 @@
 script = ExtResource("1_ability")
 id = "rapid_twin_stream"
 display_name = "Twin Stream"
-description = "Each normal shot fires two projectiles at 55% damage each in a narrow spread."
+description = "+0.50 Fire Rate. 2 projectiles per shot. 55% damage each."
 energy_cost = 40.0
 cooldown = 7.0
 duration = 1.75
@@ -32,3 +32,5 @@ projectile_block_capacity = 0
 refresh_dash_on_activate = false
 projectiles_per_shot = 2
 spread_angle_degrees = 5.0
+fire_rate_flat_bonus = 0.50
+projectile_evasion_duration = 0.0

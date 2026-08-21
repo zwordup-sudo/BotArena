@@ -51,3 +51,7 @@ enum EffectType {
 @export var refresh_dash_on_activate: bool = false
 @export var projectiles_per_shot: int = 0
 @export var spread_angle_degrees: float = 0.0
+
+# Light Identity Tuning configuration fields
+@export var fire_rate_flat_bonus: float = 0.0
+@export var projectile_evasion_duration: float = 0.0

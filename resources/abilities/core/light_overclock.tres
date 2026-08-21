@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_ability")
 id = "light_overclock"
-display_name = "Overclock"
-description = "+25% Movement Speed. Immediately refreshes normal Dash cooldown once."
+display_name = "Reflex Overclock"
+description = "+25% Movement Speed. On activation, hostile projectiles pass through you for the first 0.60 seconds."
 energy_cost = 35.0
 cooldown = 6.0
 duration = 2.25
@@ -29,6 +29,8 @@ lunge_duration = 0.0
 recovery_duration = 0.0
 blink_distance = 0.0
 projectile_block_capacity = 0
-refresh_dash_on_activate = true
+refresh_dash_on_activate = false
 projectiles_per_shot = 0
 spread_angle_degrees = 0.0
+fire_rate_flat_bonus = 0.0
+projectile_evasion_duration = 0.60

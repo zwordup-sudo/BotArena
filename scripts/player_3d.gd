@@ -102,6 +102,10 @@ var rocket_lunge_speed: float = 0.0
 var barrier_node: Area3D = null
 var barrier_durability: int = 0
 
+# Evasion Window active state parameters (Reflex Overclock)
+var is_evading_projectiles: bool = false
+var projectile_evasion_timer: float = 0.0
+
 var current_build_name: String = "BALANCED"
 
 func _ready() -> void:
@@ -135,7 +139,13 @@ func recalculate_stats() -> void:
 		
 		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp
 		speed = calc.movement_speed * (1.0 + core_temp_speed_mod)
-		fire_rate = calc.fire_rate * arms_temp_fire_rate_multiplier
+		
+		# Calculate temporary fire rate flat bonuses (Twin Stream)
+		var twin_fire_bonus = 0.0
+		if is_arms_active and bot_build and bot_build.arms and bot_build.arms.active_ability:
+			twin_fire_bonus = bot_build.arms.active_ability.fire_rate_flat_bonus
+			
+		fire_rate = calc.fire_rate * arms_temp_fire_rate_multiplier + twin_fire_bonus
 		projectile_damage = calc.projectile_damage * arms_temp_projectile_damage_multiplier
 		projectile_speed = calc.projectile_speed
 		
@@ -154,6 +164,8 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	incoming_damage_multiplier = 1.0
 	core_cooldown_timer = 0.0
 	core_duration_timer = 0.0
+	is_evading_projectiles = false
+	projectile_evasion_timer = 0.0
 	
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -317,6 +329,13 @@ func _process(delta: float) -> void:
 		if core_duration_timer <= 0.0:
 			end_core_ability()
 			
+	# Update evasion window timer
+	if is_evading_projectiles:
+		projectile_evasion_timer -= delta
+		if projectile_evasion_timer <= 0.0:
+			is_evading_projectiles = false
+			update_mesh_color()
+			
 	# Independent Arms Ability Cooldown and Duration tracking
 	if arms_cooldown_timer > 0.0:
 		arms_cooldown_timer -= delta
@@ -373,9 +392,14 @@ func activate_core_ability() -> void:
 	current_energy -= ability.energy_cost
 	core_cooldown_timer = ability.cooldown
 	
-	# Execute Dash Cooldown refresh once at activation
+	# Execute Dash Cooldown refresh once at activation (if configured)
 	if ability.get("refresh_dash_on_activate") == true:
 		dash_cooldown_timer = 0.0
+		
+	# Execute Projectile Evasion duration (if configured)
+	if ability.get("projectile_evasion_duration") > 0.0:
+		is_evading_projectiles = true
+		projectile_evasion_timer = ability.projectile_evasion_duration
 	
 	var effect_type = ability.get("effect_type")
 	if effect_type == 0: # DIRECTIONAL_BARRIER
@@ -463,6 +487,8 @@ func end_core_ability() -> void:
 	core_temp_speed_mod = 0.0
 	core_temp_dash_speed_mod = 0.0
 	incoming_damage_multiplier = 1.0
+	is_evading_projectiles = false
+	projectile_evasion_timer = 0.0
 	
 	# Clear barrier node
 	if is_instance_valid(barrier_node):
@@ -721,10 +747,16 @@ func update_mesh_color() -> void:
 		mat.albedo_color = Color(1.0, 0.5, 0.0)
 		mat.roughness = 0.2
 		mesh.material_override = mat
-	elif is_arms_active: # Twin Stream / Suppressive Fire
+	elif is_arms_active: # Twin Stream
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(1.0, 0.2, 0.6)
 		mat.roughness = 0.4
+		mesh.material_override = mat
+	elif is_evading_projectiles:
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.2, 0.9, 0.9, 0.4) # transparent cyan evasion glow
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mesh.material_override = mat
 	elif is_core_active:
 		var ability_type = bot_build.core.active_ability.effect_type
@@ -767,6 +799,8 @@ func update_canvas_hud() -> void:
 			if is_core_active:
 				if ability.effect_type == 0: # DIRECTIONAL_BARRIER
 					core_status = "BARRIER - ACTIVE " + str(barrier_durability) + "/3"
+				elif is_evading_projectiles:
+					core_status = ab_name + " - EVADE " + str(snapped(projectile_evasion_timer, 0.1)) + "s"
 				else:
 					core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
 			elif core_cooldown_timer > 0.0:
