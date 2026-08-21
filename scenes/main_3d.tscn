@@ -1,21 +1,23 @@
-[gd_scene format=3 uid="uid://dckoaahhsnncf"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://dh268o14m0th2" path="res://scripts/player_3d.gd" id="1_player3d"]
+[ext_resource type="Script" path="res://scripts/player_3d.gd" id="1_player3d"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.12, 0.12, 0.12, 1)
+roughness = 0.9
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
 size = Vector3(26, 0.5, 16)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
-albedo_color = Color(0.15, 0.15, 0.15, 1)
-
 [sub_resource type="BoxMesh" id="BoxMesh_floor"]
 size = Vector3(26, 0.5, 16)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.55, 0.55, 0.55, 1)
+roughness = 0.5
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_lr"]
 size = Vector3(0.5, 1, 16)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
-albedo_color = Color(0.3, 0.3, 0.3, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_lr"]
 size = Vector3(0.5, 1, 16)
@@ -26,103 +28,102 @@ size = Vector3(27, 1, 0.5)
 [sub_resource type="BoxMesh" id="BoxMesh_wall_tb"]
 size = Vector3(27, 1, 0.5)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
+albedo_color = Color(0.2, 0.5, 0.8, 1)
+roughness = 0.4
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_player"]
 size = Vector3(1.2, 1.2, 1.2)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
-albedo_color = Color(0.2, 0.6, 0.9, 1)
-roughness = 0.5
 
 [sub_resource type="BoxMesh" id="BoxMesh_player"]
 size = Vector3(0.9, 0.9, 0.9)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_indicator"]
-albedo_color = Color(0.95, 0.8, 0.1, 1)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_visor"]
+albedo_color = Color(1.0, 0.45, 0.0, 1)
 emission_enabled = true
-emission = Color(0.95, 0.8, 0.1, 1)
-emission_energy_multiplier = 0.5
+emission = Color(1.0, 0.45, 0.0, 1)
+emission_energy_multiplier = 0.6
 
-[sub_resource type="BoxMesh" id="BoxMesh_indicator"]
-size = Vector3(0.3, 0.3, 1.6)
+[sub_resource type="BoxMesh" id="BoxMesh_visor"]
+size = Vector3(0.6, 0.25, 0.1)
 
-[node name="Main3D" type="Node3D" unique_id=1410806980]
+[node name="Main3D" type="Node3D"]
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1921332616]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 10, 0)
 shadow_enabled = true
 
-[node name="Arena3D" type="Node3D" parent="." unique_id=191897197]
+[node name="Arena3D" type="Node3D" parent="."]
 
-[node name="Floor" type="StaticBody3D" parent="Arena3D" unique_id=2050015492]
+[node name="Floor" type="StaticBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/Floor" unique_id=831248444]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/Floor"]
 shape = SubResource("BoxShape3D_floor")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/Floor" unique_id=927648782]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.009755611, -0.4098165, 0.2604437)
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/Floor"]
 material_override = SubResource("StandardMaterial3D_floor")
 mesh = SubResource("BoxMesh_floor")
 
-[node name="WallLeft" type="StaticBody3D" parent="Arena3D" unique_id=554659268]
+[node name="WallLeft" type="StaticBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.25, 0.5, 0)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallLeft" unique_id=67163955]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallLeft"]
 shape = SubResource("BoxShape3D_wall_lr")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallLeft" unique_id=1097124329]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallLeft"]
 material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_wall_lr")
 
-[node name="WallRight" type="StaticBody3D" parent="Arena3D" unique_id=993872383]
+[node name="WallRight" type="StaticBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.25, 0.5, 0)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallRight" unique_id=859053012]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallRight"]
 shape = SubResource("BoxShape3D_wall_lr")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallRight" unique_id=404255819]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallRight"]
 material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_wall_lr")
 
-[node name="WallTop" type="StaticBody3D" parent="Arena3D" unique_id=759927326]
+[node name="WallTop" type="StaticBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -8.25)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallTop" unique_id=485832525]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallTop"]
 shape = SubResource("BoxShape3D_wall_tb")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallTop" unique_id=1827140662]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallTop"]
 material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_wall_tb")
 
-[node name="WallBottom" type="StaticBody3D" parent="Arena3D" unique_id=725140165]
+[node name="WallBottom" type="StaticBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 8.25)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallBottom" unique_id=1388977545]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/WallBottom"]
 shape = SubResource("BoxShape3D_wall_tb")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallBottom" unique_id=402069789]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena3D/WallBottom"]
 material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_wall_tb")
 
-[node name="Player3D" type="CharacterBody3D" parent="Arena3D" unique_id=1315442002]
+[node name="Player3D" type="CharacterBody3D" parent="Arena3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 script = ExtResource("1_player3d")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/Player3D" unique_id=1554578632]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena3D/Player3D"]
 shape = SubResource("BoxShape3D_player")
 
-[node name="BodyMesh" type="MeshInstance3D" parent="Arena3D/Player3D" unique_id=1232311941]
+[node name="AimPivot" type="Node3D" parent="Arena3D/Player3D"]
+
+[node name="BodyMesh" type="MeshInstance3D" parent="Arena3D/Player3D/AimPivot"]
 material_override = SubResource("StandardMaterial3D_player")
 mesh = SubResource("BoxMesh_player")
 
-[node name="AimPivot" type="Node3D" parent="Arena3D/Player3D" unique_id=1791169420]
+[node name="AimVisor" type="MeshInstance3D" parent="Arena3D/Player3D/AimPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -0.47)
+material_override = SubResource("StandardMaterial3D_visor")
+mesh = SubResource("BoxMesh_visor")
 
-[node name="AimIndicator" type="MeshInstance3D" parent="Arena3D/Player3D/AimPivot" unique_id=1543716130]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -0.8)
-material_override = SubResource("StandardMaterial3D_indicator")
-mesh = SubResource("BoxMesh_indicator")
-
-[node name="Camera3D" type="Camera3D" parent="." unique_id=151119058]
-transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 13, 13)
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 13.0, 13.0)
 projection = 1
 size = 20.0
