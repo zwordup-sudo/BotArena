@@ -1,12 +1,19 @@
 extends CharacterBody3D
 
 @export var speed: float = 6.0
+@export var fire_rate: float = 2.5
 
 @export var dash_speed: float = 18.0
 @export var dash_duration: float = 0.14
 @export var dash_cooldown: float = 0.80
 
 @onready var aim_pivot: Node3D = $AimPivot
+@onready var muzzle: Node3D = $AimPivot/Muzzle
+
+# Preload the projectile scene
+const PROJECTILE_SCENE = preload("res://scenes/projectile_3d.tscn")
+
+var fire_cooldown_timer: float = 0.0
 
 var is_dashing: bool = false
 var dash_timer: float = 0.0
@@ -31,7 +38,6 @@ func _physics_process(delta: float) -> void:
 	# Check for dash trigger
 	if Input.is_action_just_pressed("dash") and not is_dashing and dash_cooldown_timer <= 0.0:
 		start_dash()
-		# Run the first frame of dash movement immediately
 		velocity = dash_direction * dash_speed
 		move_and_slide()
 		return
@@ -47,9 +53,19 @@ func _physics_process(delta: float) -> void:
 		
 	move_and_slide()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Independent mouse aiming
 	aim_to_mouse()
+	
+	# Cooldown tracking
+	if fire_cooldown_timer > 0.0:
+		fire_cooldown_timer -= delta
+		
+	# Primary Attack (Continuous fire)
+	if Input.is_action_pressed("attack_primary"):
+		if fire_cooldown_timer <= 0.0:
+			shoot()
+			fire_cooldown_timer = 1.0 / fire_rate
 
 func start_dash() -> void:
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -58,7 +74,6 @@ func start_dash() -> void:
 	if move_dir.length_squared() > 0.0:
 		dash_direction = move_dir.normalized()
 	else:
-		# Use the current aim direction (forward is -Z in local AimPivot coords)
 		var aim_dir = -aim_pivot.global_transform.basis.z
 		aim_dir.y = 0.0
 		dash_direction = aim_dir.normalized()
@@ -66,6 +81,23 @@ func start_dash() -> void:
 	is_dashing = true
 	dash_timer = dash_duration
 	dash_cooldown_timer = dash_cooldown
+
+func shoot() -> void:
+	var proj = PROJECTILE_SCENE.instantiate()
+	
+	# Get aiming direction (forward is local -Z)
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	# Add to Projectiles3D node first so its global space transforms are resolved relative to parent
+	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+	if projectiles_node:
+		projectiles_node.add_child(proj)
+		
+	# Set position using Muzzle's current global position
+	proj.global_position = muzzle.global_position
+	proj.direction = aim_dir
 
 func aim_to_mouse() -> void:
 	var camera := get_viewport().get_camera_3d()
