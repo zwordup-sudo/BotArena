@@ -30,6 +30,7 @@ const STANDARD_CORE = preload("res://resources/parts/core/standard_core.tres")
 const LIGHT_CORE = preload("res://resources/parts/core/light_core.tres")
 const HEAVY_CORE = preload("res://resources/parts/core/heavy_core.tres")
 const ASSASSIN_TEST_CORE = preload("res://resources/parts/core/assassin_test_core.tres")
+const TANK_TEST_CORE = preload("res://resources/parts/core/tank_test_core.tres")
 
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
@@ -42,10 +43,11 @@ const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_legs.tres")
+const TANK_TEST_LEGS = preload("res://resources/parts/legs/tank_test_legs.tres")
 
-@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE]
+@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE]
 @onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS]
-@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS]
+@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS]
 
 var core_idx: int = 0
 var arms_idx: int = 0
@@ -128,6 +130,23 @@ var windup_timer: float = 0.0
 var current_windup_attack_data: PrimaryAttackData = null
 var windup_aim_direction: Vector3 = Vector3.ZERO
 
+# Reactive Plating fields (Tank Lab 0.2)
+var reactive_plating_charges: int = 0
+var reactive_plating_damage_multiplier: float = 1.0
+
+# Concussive Slam fields (Tank Lab 0.2)
+var is_slam_winding_up: bool = false
+var slam_windup_timer: float = 0.0
+var current_slam_ability_data: AbilityData = null
+
+# Siege Drive fields (Tank Lab 0.2)
+var is_siege_driving: bool = false
+var siege_drive_timer: float = 0.0
+var siege_drive_direction: Vector3 = Vector3.ZERO
+var siege_drive_speed: float = 0.0
+var siege_drive_stagger_duration: float = 0.0
+var siege_drive_has_contacted: bool = false
+
 var current_build_name: String = "BALANCED"
 
 # Combo State tracking fields
@@ -136,7 +155,9 @@ var last_attack_time: float = -999.0
 
 func _ready() -> void:
 	# Load existing selection from autoload GameSession if available
-	var saved_build = GameSession.get_selected_build() if has_node("/root/GameSession") else null
+	var saved_build = null
+	if has_node("/root/GameSession"):
+		saved_build = GameSession.get_selected_build()
 	if saved_build:
 		bot_build = saved_build
 		
@@ -211,6 +232,20 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	windup_timer = 0.0
 	current_windup_attack_data = null
 	windup_aim_direction = Vector3.ZERO
+	
+	reactive_plating_charges = 0
+	reactive_plating_damage_multiplier = 1.0
+	
+	is_slam_winding_up = false
+	slam_windup_timer = 0.0
+	current_slam_ability_data = null
+	
+	is_siege_driving = false
+	siege_drive_timer = 0.0
+	siege_drive_direction = Vector3.ZERO
+	siege_drive_speed = 0.0
+	siege_drive_stagger_duration = 0.0
+	siege_drive_has_contacted = false
 	
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -319,6 +354,52 @@ func _physics_process(delta: float) -> void:
 	if dash_cooldown_timer > 0.0:
 		dash_cooldown_timer -= delta
 		
+	# Handle Siege Drive Movement (Tank Legs - committed forward drive)
+	if is_siege_driving:
+		siege_drive_timer -= delta
+		if siege_drive_timer <= 0.0 or siege_drive_has_contacted:
+			is_siege_driving = false
+			is_legs_active = false
+			update_mesh_color()
+		else:
+			# Collision-safe movement
+			var velocity_vec = siege_drive_direction * siege_drive_speed * delta
+			
+			# 1. Query overlap for immediate contact with Area3D/Body enemies
+			var space_state = get_world_3d().direct_space_state
+			var eq = PhysicsShapeQueryParameters3D.new()
+			var esph = SphereShape3D.new()
+			esph.radius = 1.0
+			eq.shape = esph
+			eq.transform = global_transform
+			eq.exclude = [get_rid()]
+			eq.collide_with_areas = true
+			eq.collide_with_bodies = true
+			
+			var results = space_state.intersect_shape(eq)
+			var enemy_contacted: Node = null
+			for res in results:
+				var collider = res.collider
+				if is_instance_valid(collider) and collider.has_method("take_damage"):
+					enemy_contacted = collider
+					break
+			
+			# 2. Move and check physical collision
+			var collision = move_and_collide(velocity_vec)
+			
+			# 3. Resolve unified contact outcomes
+			if enemy_contacted:
+				siege_drive_has_contacted = true
+				if enemy_contacted.has_method("apply_stagger"):
+					enemy_contacted.apply_stagger(siege_drive_stagger_duration, self)
+			elif collision != null:
+				siege_drive_has_contacted = true
+				var phys_collider = collision.get_collider()
+				if phys_collider and phys_collider.has_method("take_damage"):
+					if phys_collider.has_method("apply_stagger"):
+						phys_collider.apply_stagger(siege_drive_stagger_duration, self)
+			return
+
 	# Handle Rocket Lunge Movement (strongly committed lunge)
 	if is_rocket_lunging:
 		rocket_lunge_timer -= delta
@@ -389,6 +470,14 @@ func _process(delta: float) -> void:
 			is_winding_up = false
 			if current_windup_attack_data:
 				execute_thrust_impact_hit(current_windup_attack_data, windup_aim_direction)
+				
+	# Update Concussive Slam windup timer (Tank Arms)
+	if is_slam_winding_up:
+		slam_windup_timer -= delta
+		if slam_windup_timer <= 0.0:
+			is_slam_winding_up = false
+			if current_slam_ability_data:
+				execute_concussive_slam_hit(current_slam_ability_data)
 			
 	# Update active melee interception window (Assassin Polish 0.3)
 	if is_melee_intercepting:
@@ -485,6 +574,8 @@ func activate_core_ability() -> void:
 		start_core_damage_reduction(ability)
 	elif effect_type == 9: # GHOST_BUFFER (Assassin Core Ingress)
 		start_ghost_buffer(ability)
+	elif effect_type == 12: # REACTIVE_PLATING (Tank Core Survive)
+		start_reactive_plating(ability)
 
 func start_directional_barrier(ability: AbilityData) -> void:
 	is_core_active = true
@@ -577,6 +668,13 @@ func deduct_ghost_buffer_charge() -> void:
 		else:
 			update_mesh_color()
 
+func start_reactive_plating(ability: AbilityData) -> void:
+	is_core_active = true
+	core_duration_timer = ability.duration
+	reactive_plating_charges = ability.projectile_mitigation_charges
+	reactive_plating_damage_multiplier = ability.projectile_damage_multiplier
+	update_mesh_color()
+
 func notify_kill(target: Node) -> void:
 	if execution_refresh_window_timer > 0.0 and not execution_refresh_triggered_this_activation:
 		core_cooldown_timer = 0.0
@@ -592,6 +690,8 @@ func end_core_ability() -> void:
 	is_evading_projectiles = false
 	projectile_evasion_timer = 0.0
 	ghost_buffer_charges = 0
+	reactive_plating_charges = 0
+	reactive_plating_damage_multiplier = 1.0
 	
 	# Clear barrier node
 	if is_instance_valid(barrier_node):
@@ -612,6 +712,13 @@ func activate_arms_ability() -> void:
 	var effect_type = ability.effect_type
 	if effect_type == 11: # EXECUTION_RUSH (Assassin E)
 		execute_execution_rush(ability)
+		return
+	elif effect_type == 13: # CONCUSSIVE_SLAM (Tank E)
+		if arms_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		current_energy -= ability.energy_cost
+		arms_cooldown_timer = ability.cooldown
+		start_concussive_slam(ability)
 		return
 		
 	if arms_cooldown_timer > 0.0:
@@ -764,7 +871,7 @@ func execute_execution_rush(ability: AbilityData) -> void:
 	
 	if move_dist > 0.0:
 		var move_vec = diff_vec.normalized() * move_dist
-		var collision = move_and_collide(move_vec)
+		var _collision = move_and_collide(move_vec)
 		
 	# Execute single strong melee strike against target
 	var arms_atk = bot_build.arms.primary_attack as PrimaryAttackData
@@ -783,6 +890,63 @@ func execute_execution_rush(ability: AbilityData) -> void:
 		visual_arc = arms_atk.melee_arc_degrees
 		
 	create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.2, 0.2, 0.8), 0.18)
+
+func start_concussive_slam(ability: AbilityData) -> void:
+	is_slam_winding_up = true
+	slam_windup_timer = ability.windup_time
+	current_slam_ability_data = ability
+
+func execute_concussive_slam_hit(ability: AbilityData) -> void:
+	var base_melee_dmg = projectile_damage
+	if bot_build and bot_build.arms and bot_build.arms.primary_attack:
+		base_melee_dmg = projectile_damage * bot_build.arms.primary_attack.damage_multiplier
+	var slam_dmg = base_melee_dmg * ability.damage_multiplier
+	
+	# Visual ring centered on player
+	create_slam_visual(ability.effect_radius)
+	
+	# Physics query within radius
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsShapeQueryParameters3D.new()
+	var sphere = SphereShape3D.new()
+	sphere.radius = ability.effect_radius
+	query.shape = sphere
+	query.transform = global_transform
+	query.exclude = [get_rid()]
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	
+	var results = space_state.intersect_shape(query)
+	print("\n--- CONCUSSIVE SLAM HIT ---")
+	print("Enemies in slam radius: ", results.size())
+	
+	for res in results:
+		var collider = res.collider
+		if is_instance_valid(collider) and collider.has_method("take_damage"):
+			collider.take_damage(slam_dmg, self)
+			if collider.has_method("apply_stagger"):
+				collider.apply_stagger(ability.stagger_duration, self)
+
+func create_slam_visual(radius: float) -> void:
+	var mesh_instance = MeshInstance3D.new()
+	var cylinder_mesh = CylinderMesh.new()
+	cylinder_mesh.top_radius = radius
+	cylinder_mesh.bottom_radius = radius
+	cylinder_mesh.height = 0.1
+	mesh_instance.mesh = cylinder_mesh
+	
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.7, 0.5, 0.3, 0.5)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh_instance.material_override = mat
+	
+	get_parent().add_child(mesh_instance)
+	mesh_instance.global_position = global_position + Vector3(0.0, 0.05, 0.0)
+	
+	var tween = create_tween()
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.25)
+	tween.tween_callback(mesh_instance.queue_free)
 
 func process_melee_interception() -> void:
 	if not current_melee_interception_data:
@@ -891,6 +1055,13 @@ func activate_legs_ability() -> void:
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
 		execute_recoil_step(ability)
+	elif effect_type == 14: # SIEGE_DRIVE (Tank Legs Drive)
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
+		current_energy -= ability.energy_cost
+		legs_cooldown_timer = ability.cooldown
+		start_siege_drive(ability)
 
 func create_anchor_marker(pos: Vector3) -> void:
 	vector_anchor_marker = MeshInstance3D.new()
@@ -1009,6 +1180,20 @@ func execute_recoil_step(ability: AbilityData) -> void:
 		
 	create_blink_visual(1.5)
 
+func start_siege_drive(ability: AbilityData) -> void:
+	is_legs_active = true
+	is_siege_driving = true
+	siege_drive_timer = ability.duration
+	siege_drive_speed = ability.ability_move_speed
+	siege_drive_stagger_duration = ability.contact_stagger_duration
+	siege_drive_has_contacted = false
+	
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	siege_drive_direction = aim_dir.normalized()
+	
+	update_mesh_color()
+
 func update_mesh_color() -> void:
 	var mesh = aim_pivot.get_node_or_null("BodyMesh")
 	if not mesh:
@@ -1022,6 +1207,11 @@ func update_mesh_color() -> void:
 	elif is_rocket_lunging:
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(1.0, 0.5, 0.0)
+		mat.roughness = 0.2
+		mesh.material_override = mat
+	elif is_siege_driving: # Siege Drive (bright yellow-orange)
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(1.0, 0.8, 0.2)
 		mat.roughness = 0.2
 		mesh.material_override = mat
 	elif is_arms_active: # Twin Stream
@@ -1038,6 +1228,12 @@ func update_mesh_color() -> void:
 	elif ghost_buffer_charges > 0: # Ghost Buffer (translucent magenta)
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(0.8, 0.2, 0.8, 0.5)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mesh.material_override = mat
+	elif reactive_plating_charges > 0: # Reactive Plating (translucent steel-blue)
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.3, 0.6, 1.0, 0.5)
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mesh.material_override = mat
@@ -1085,6 +1281,8 @@ func update_canvas_hud() -> void:
 						core_status = "BARRIER - ACTIVE " + str(barrier_durability) + "/3"
 					elif ability.effect_type == 9: # GHOST_BUFFER
 						core_status = "GHOST BUFFER - " + str(ghost_buffer_charges) + "/2"
+					elif ability.effect_type == 12: # REACTIVE_PLATING
+						core_status = "REACTIVE PLATING - " + str(reactive_plating_charges) + "/4"
 					elif is_evading_projectiles:
 						core_status = ab_name + " - EVADE " + str(snapped(projectile_evasion_timer, 0.1)) + "s"
 					else:
@@ -1102,7 +1300,9 @@ func update_canvas_hud() -> void:
 			var ability = bot_build.arms.active_ability as AbilityData
 			if ability:
 				var ab_name = ability.display_name.to_upper()
-				if is_charged_shot_charging:
+				if is_slam_winding_up:
+					arms_status = ab_name + " - WINDUP " + str(snapped(slam_windup_timer, 0.1)) + "s"
+				elif is_charged_shot_charging:
 					arms_status = ab_name + " - CHARGING " + str(snapped(charged_shot_charge_timer, 0.1)) + "s"
 				elif is_arms_active:
 					arms_status = ab_name + " - ACTIVE " + str(snapped(arms_duration_timer, 0.1)) + "s"
@@ -1117,7 +1317,9 @@ func update_canvas_hud() -> void:
 			var ability = bot_build.legs.active_ability as AbilityData
 			if ability:
 				var ab_name = ability.display_name.to_upper()
-				if is_vector_anchor_active:
+				if is_siege_driving:
+					legs_status = ab_name + " - ACTIVE"
+				elif is_vector_anchor_active:
 					legs_status = ab_name + " - RETURN " + str(snapped(vector_anchor_timer, 0.1)) + "s"
 				elif is_rocket_lunging:
 					legs_status = ab_name + " - ACTIVE"
@@ -1268,7 +1470,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 							
 		if best_target:
 			var move_vec = aim_dir * engage_dist
-			var collision = move_and_collide(move_vec)
+			var _collision = move_and_collide(move_vec)
 			
 	# Start projectile interception window if configured (Assassin Polish 0.3)
 	var intercept_limit = attack_data.projectile_interception_limit
@@ -1503,8 +1705,21 @@ func create_melee_visual_custom(range_val: float, arc_deg: float, color: Color, 
 	tween.tween_callback(mesh_instance.queue_free)
 
 func take_damage(amount: float, source: Node = null) -> void:
-	var final_dmg = amount * incoming_damage_multiplier
-	current_health = clamp(current_health - final_dmg, 0.0, max_health)
+	var final_dmg = amount
+	
+	# Apply Reactive Plating projectile mitigation (Tank Core)
+	if source and source.is_in_group("hostile_projectile"):
+		if reactive_plating_charges > 0:
+			final_dmg *= reactive_plating_damage_multiplier
+			reactive_plating_charges -= 1
+			print("Reactive Plating mitigated damage! Remaining plates: ", reactive_plating_charges)
+			if reactive_plating_charges <= 0:
+				end_core_ability()
+			else:
+				update_mesh_color()
+				
+	var final_applied = final_dmg * incoming_damage_multiplier
+	current_health = clamp(current_health - final_applied, 0.0, max_health)
 	print("Player3D remaining health: ", int(current_health))
 	if current_health <= 0.0:
 		die()

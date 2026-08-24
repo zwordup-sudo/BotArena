@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "tank_siege_drive"
+display_name = "Siege Drive"
+description = "Drive forward in a locked direction, staggering the first enemy contacted."
+energy_cost = 30.0
+cooldown = 7.0
+duration = 0.45
+effect_type = 14
+ability_move_speed = 10.5
+contact_stagger_duration = 0.35

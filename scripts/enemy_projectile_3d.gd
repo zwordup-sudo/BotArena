@@ -35,7 +35,7 @@ func _on_body_entered(body: Node3D) -> void:
 			return
 			
 	if body.has_method("take_damage"):
-		body.take_damage(damage)
+		body.take_damage(damage, self)
 		if not is_queued_for_deletion():
 			queue_free()
 

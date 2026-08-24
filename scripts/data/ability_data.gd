@@ -13,7 +13,10 @@ enum EffectType {
 	ROCKET_LUNGE,
 	GHOST_BUFFER,
 	RECOIL_STEP,
-	EXECUTION_RUSH
+	EXECUTION_RUSH,
+	REACTIVE_PLATING,
+	CONCUSSIVE_SLAM,
+	SIEGE_DRIVE
 }
 
 @export var id: String = ""
@@ -69,3 +72,12 @@ enum EffectType {
 @export var target_range: float = 0.0
 @export var target_cone_degrees: float = 0.0
 @export var strike_damage_multiplier: float = 1.0
+
+# Tank Lab 0.2 configuration fields
+@export var projectile_mitigation_charges: int = 0
+@export var effect_radius: float = 0.0
+@export var contact_stagger_duration: float = 0.0
+@export var windup_time: float = 0.0
+@export var damage_multiplier: float = 1.0
+@export var stagger_duration: float = 0.0
+@export var can_interrupt: bool = false

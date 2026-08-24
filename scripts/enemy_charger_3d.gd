@@ -118,7 +118,7 @@ func take_damage(amount: float, source: Node = null) -> void:
 			source.notify_kill(self)
 		die()
 
-func apply_stagger(duration: float, source: Node = null) -> void:
+func apply_stagger(_duration: float, _source: Node = null) -> void:
 	if current_state == State.TELEGRAPH or current_state == State.CHARGE:
 		print("Charger attack interrupted by Tank Impact!")
 		print("INTERRUPT")

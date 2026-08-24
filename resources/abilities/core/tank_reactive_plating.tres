@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "tank_reactive_plating"
+display_name = "Reactive Plating"
+description = "Sustained projectile mitigation. Defending with plates reduces projectile damage by 60% up to 4 hits."
+energy_cost = 40.0
+cooldown = 8.0
+duration = 2.5
+effect_type = 12
+projectile_damage_multiplier = 0.40
+projectile_mitigation_charges = 4

@@ -12,3 +12,6 @@ func take_damage(amount: float, source: Node = null) -> void:
 		if source and source.has_method("notify_kill"):
 			source.notify_kill(self)
 		queue_free()
+
+func apply_stagger(duration: float, source: Node = null) -> void:
+	print("TargetDummy3D staggered for ", duration, " seconds by ", (source.name if source else "unknown"))

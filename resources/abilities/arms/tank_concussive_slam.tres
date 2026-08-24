@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "tank_concussive_slam"
+display_name = "Concussive Slam"
+description = "Deliver a ground slam that damages and staggers all nearby enemies."
+energy_cost = 35.0
+cooldown = 7.0
+duration = 0.0
+effect_type = 13
+windup_time = 0.30
+effect_radius = 2.40
+damage_multiplier = 0.80
+stagger_duration = 0.90
+can_interrupt = true
