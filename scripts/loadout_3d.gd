@@ -23,9 +23,15 @@ const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_leg
 const TANK_TEST_LEGS = preload("res://resources/parts/legs/tank_test_legs.tres")
 const SHOOTER_TEST_LEGS = preload("res://resources/parts/legs/shooter_test_legs.tres")
 
+const TANK_PROTO = preload("res://resources/protocols/lab/tank_protocol_test.tres")
+const ASSASSIN_PROTO = preload("res://resources/protocols/lab/assassin_protocol_test.tres")
+const SHOOTER_PROTO = preload("res://resources/protocols/lab/shooter_protocol_test.tres")
+const FIGHTER_PROTO = preload("res://resources/protocols/lab/fighter_protocol_test.tres")
+
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE]
 @onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS]
+@onready var protocol_list = [null, TANK_PROTO, ASSASSIN_PROTO, SHOOTER_PROTO, FIGHTER_PROTO]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
 @onready var core_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreDesc
@@ -33,6 +39,8 @@ const SHOOTER_TEST_LEGS = preload("res://resources/parts/legs/shooter_test_legs.
 @onready var arms_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ArmsDesc
 @onready var legs_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/LegsContainer/LegsSelector
 @onready var legs_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/LegsDesc
+@onready var protocol_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ProtocolContainer/ProtocolSelector
+@onready var protocol_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ProtocolDesc
 @onready var stats_label: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/StatsPanel/MarginContainer/StatsLabel
 @onready var enter_button: Button = $MarginContainer/VBoxContainer/EnterButton
 
@@ -52,10 +60,18 @@ func _ready() -> void:
 	for legs in legs_list:
 		legs_selector.add_item(legs.display_name)
 		
+	protocol_selector.clear()
+	for proto in protocol_list:
+		if proto == null:
+			protocol_selector.add_item("NONE")
+		else:
+			protocol_selector.add_item(proto.display_name)
+		
 	# Connect signals
 	core_selector.item_selected.connect(_on_part_selected)
 	arms_selector.item_selected.connect(_on_part_selected)
 	legs_selector.item_selected.connect(_on_part_selected)
+	protocol_selector.item_selected.connect(_on_protocol_selected)
 	enter_button.pressed.connect(_on_enter_pressed)
 	
 	# Load existing build from GameSession if it exists
@@ -68,11 +84,18 @@ func _ready() -> void:
 		if a_idx != -1: arms_selector.selected = a_idx
 		var l_idx = legs_list.find(saved_build.legs)
 		if l_idx != -1: legs_selector.selected = l_idx
+		
+		var p_idx = protocol_list.find(saved_build.protocol_module)
+		if p_idx != -1: protocol_selector.selected = p_idx
 	else:
 		core_selector.selected = 0
 		arms_selector.selected = 0
 		legs_selector.selected = 0
+		protocol_selector.selected = 0
 		
+	update_build_and_preview()
+
+func _on_protocol_selected(_idx: int) -> void:
 	update_build_and_preview()
 
 func _on_part_selected(_idx: int) -> void:
@@ -243,8 +266,73 @@ func update_build_and_preview() -> void:
 			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration/Window: " + dur_str + "\n" + \
 			ab.description
 	
-	# Calculate Role Profile
+	# Calculate Role Profile first
 	var profile = load("res://scripts/data/bot_role_calculator.gd").calculate(current_build)
+	
+	# Determine eligible protocols
+	var eligible_protocols = []
+	for proto in protocol_list:
+		if proto == null:
+			continue
+		var tank_ok = profile.tank_percentage >= proto.min_tank_percentage
+		var ass_ok = profile.assassin_percentage >= proto.min_assassin_percentage
+		var sh_ok = profile.shooter_percentage >= proto.min_shooter_percentage
+		var cov_ok = profile.coverage_percentage >= proto.min_role_coverage
+		if tank_ok and ass_ok and sh_ok and cov_ok:
+			eligible_protocols.append(proto)
+			
+	# Validate selected protocol module
+	var selected_proto = protocol_list[protocol_selector.selected]
+	if selected_proto != null and not selected_proto in eligible_protocols:
+		protocol_selector.selected = 0
+		selected_proto = null
+		
+	# Apply to current build
+	current_build.protocol_module = selected_proto
+	
+	# Update option button enabled states
+	for i in range(protocol_list.size()):
+		var proto = protocol_list[i]
+		if proto == null:
+			protocol_selector.get_popup().set_item_disabled(i, false)
+		else:
+			protocol_selector.get_popup().set_item_disabled(i, not proto in eligible_protocols)
+			
+	# Protocol active ability summary
+	var protocol_txt = "PROTOCOL MODULE: None"
+	if current_build.protocol_module:
+		var pm = current_build.protocol_module
+		protocol_txt = "PROTOCOL MODULE: " + pm.display_name + "\n" + \
+			"Eligibility: VALID\n" + \
+			"Special Ability: NOT IMPLEMENTED - Protocol System 0.1B\n" + \
+			"Stat Modifiers: NONE - prototype\n" + \
+			pm.description
+		protocol_desc.text = pm.description
+	else:
+		protocol_desc.text = "No active protocol equipped."
+		
+	# Format Eligibility summary
+	var eligibility_lines = []
+	for proto in protocol_list:
+		if proto == null:
+			continue
+		var is_eligible = proto in eligible_protocols
+		var status_str = "AVAILABLE" if is_eligible else "LOCKED"
+		var reqs = []
+		if proto.min_tank_percentage > 0.0:
+			reqs.append("Tank >= %d%%" % int(proto.min_tank_percentage))
+		if proto.min_assassin_percentage > 0.0:
+			reqs.append("Assassin >= %d%%" % int(proto.min_assassin_percentage))
+		if proto.min_shooter_percentage > 0.0:
+			reqs.append("Shooter >= %d%%" % int(proto.min_shooter_percentage))
+		if proto.min_role_coverage > 0.0:
+			reqs.append("Coverage >= %d%%" % int(proto.min_role_coverage))
+		var req_str = ", ".join(reqs)
+		eligibility_lines.append(
+			"%s:\n  %s\n  (Requires %s)" % [proto.display_name, status_str, req_str]
+		)
+	var eligibility_txt = "PROTOCOL ELIGIBILITY\n\n" + "\n\n".join(eligibility_lines)
+
 	var coverage_str = "Coverage:\n%d%%" % int(profile.coverage_percentage)
 	if profile.is_partial:
 		coverage_str += "\n\nPARTIAL PROFILE"
@@ -267,8 +355,10 @@ func update_build_and_preview() -> void:
 		"ENERGY: 100 | ENERGY REGEN: 5.0 / s\n" +
 		ability_txt + "\n\n" +
 		arms_txt + "\n\n" +
-		legs_txt + "\n\n========================================\n" +
-		role_profile_txt
+		legs_txt + "\n\n" +
+		protocol_txt + "\n\n========================================\n" +
+		role_profile_txt + "\n\n========================================\n" +
+		eligibility_txt
 	)
 
 func _on_enter_pressed() -> void:

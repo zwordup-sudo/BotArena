@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ProtocolModuleData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/protocol_module_data.gd" id="1_proto"]
+
+[resource]
+script = ExtResource("1_proto")
+id = "assassin_protocol_test"
+display_name = "Assassin Protocol Test"
+description = "Specialized ingress/execute protocol. Provides Shadow Slip (prototype)."
+min_tank_percentage = 0.0
+min_assassin_percentage = 75.0
+min_shooter_percentage = 0.0
+min_role_coverage = 67.0
+power_cost = 0.0
+weight_cost = 0.0
+thermal_load = 0.0

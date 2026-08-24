@@ -27,3 +27,10 @@ Players generate Sync during battle by executing role-consistent playstyles:
 * Progression trees will unlock various Protocol Modules for selection, but active combat eligibility is always determined by the current equipped part configuration.
 * **Full Specialization** (e.g. 100% single role) unlocks advanced, highly focused Protocols.
 * **Hybrid Specialization** (e.g. 67% / 33% mixed roles) unlocks specialized hybrid Protocols that support versatile multi-role combat loops.
+
+## 6. Protocol System 0.1A Verification Rules
+* **Tank Protocol Test**: Requires Tank $\ge$ 75%, Role Coverage $\ge$ 67%.
+* **Assassin Protocol Test**: Requires Assassin $\ge$ 75%, Role Coverage $\ge$ 67%.
+* **Shooter Protocol Test**: Requires Shooter $\ge$ 75%, Role Coverage $\ge$ 67%.
+* **Fighter Protocol Test**: Requires Tank $\ge$ 50%, Assassin $\ge$ 25%, Role Coverage $\ge$ 67%.
+* **Generic / Balanced Builds**: No Protocol eligibility is unlocked when coverage or role thresholds are not met. Equipping incompatible parts instantly invalidates and auto-unequips ineligible Protocols (setting `protocol_module = null`).

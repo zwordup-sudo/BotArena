@@ -21,6 +21,8 @@ extends Resource
 			return
 		legs = val
 
+@export var protocol_module: Resource
+
 func validate_build() -> bool:
 	if core and core.get("slot") != 0:
 		return false
