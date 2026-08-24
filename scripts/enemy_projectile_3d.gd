@@ -4,7 +4,8 @@ extends Area3D
 @export var damage: float = 20.0
 @export var lifetime: float = 5.0
 @export var can_be_intercepted: bool = true
-@export var interception_durability: int = 1
+@export var interception_durability: float = 1.0
+@export var interception_power: float = 1.0
 
 var direction: Vector3 = Vector3.FORWARD
 var source_actor: Node = null
@@ -48,16 +49,32 @@ func _on_body_entered(body: Node3D) -> void:
 		body.take_damage(damage, self)
 	queue_free()
 
+func get_interception_power() -> float:
+	return interception_power
+
+func take_interception_damage(power: float) -> void:
+	interception_durability -= power
+	if interception_durability <= 0.0:
+		is_consumed = true
+		if not is_queued_for_deletion():
+			queue_free()
+
+func take_interception_hit() -> void:
+	take_interception_damage(1.0)
+
 func _on_area_entered(area: Area3D) -> void:
 	if is_consumed:
 		return
 	if area.get("can_be_intercepted") == true:
 		if not area.is_queued_for_deletion():
-			take_interception_hit()
-
-func take_interception_hit() -> void:
-	interception_durability -= 1
-	if interception_durability <= 0:
-		is_consumed = true
-		if not is_queued_for_deletion():
-			queue_free()
+			if area.get("is_consumed") == true:
+				return
+				
+			var other_power = 1.0
+			if area.has_method("get_interception_power"):
+				other_power = area.get_interception_power()
+				
+			if area.has_method("take_interception_damage"):
+				area.take_interception_damage(get_interception_power())
+				
+			take_interception_damage(other_power)

@@ -4,7 +4,8 @@ extends Area3D
 @export var damage: float = 25.0
 @export var lifetime: float = 3.0
 @export var can_be_intercepted: bool = true
-@export var interception_durability: int = 1
+@export var interception_durability: float = 1.0
+@export var interception_power: float = 1.0
 
 var direction: Vector3 = Vector3.FORWARD
 var source_actor: Node = null
@@ -21,7 +22,14 @@ var stagger_duration: float = 0.0
 var is_consumed: bool = false
 
 # Customizable visual properties (Shooter Disruptor Round color passes)
-var custom_color: Color = Color(0.0, 0.0, 0.0, 0.0)
+var custom_color: Color = Color(0.0, 0.0, 0.0, 0.0):
+	set(val):
+		custom_color = val
+		_apply_custom_visuals()
+
+# Specialized interception power scaling (Shooter Polish 0.2)
+var close_interception_power: float = 0.0
+var optimal_interception_power: float = 0.0
 
 func _ready() -> void:
 	direction = Vector3(direction.x, 0.0, direction.z).normalized()
@@ -29,7 +37,15 @@ func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 	body_entered.connect(_on_body_entered)
 	
-	# Apply custom color/scale modifications dynamically (Shooter Disruptor Round E)
+	_apply_custom_visuals()
+	
+	# Automatically destroy when lifetime expires
+	await get_tree().create_timer(lifetime).timeout
+	queue_free()
+
+func _apply_custom_visuals() -> void:
+	if not is_inside_tree():
+		return
 	if custom_color.a > 0.0:
 		var mesh_inst: MeshInstance3D = null
 		for child in get_children():
@@ -41,13 +57,10 @@ func _ready() -> void:
 			mat.albedo_color = custom_color
 			mat.emission_enabled = true
 			mat.emission = custom_color
-			mat.emission_energy_multiplier = 1.5
+			mat.emission_energy_multiplier = 1.8
 			mesh_inst.material_override = mat
-			mesh_inst.scale = Vector3(1.15, 1.15, 1.15)
-	
-	# Automatically destroy when lifetime expires
-	await get_tree().create_timer(lifetime).timeout
-	queue_free()
+			# Elongate visual along Z axis (length 1.65x, width 1.15x) without changing collider
+			mesh_inst.scale = Vector3(1.15, 1.15, 1.65 * 1.15)
 
 func _physics_process(delta: float) -> void:
 	# Move exclusively on X/Z plane
@@ -84,15 +97,15 @@ func spawn_optimal_indicator() -> void:
 		tween.tween_property(mat, "albedo_color:a", 0.0, 0.15)
 		tween.tween_callback(mesh_instance.queue_free)
 
-func spawn_cyan_impact_flash() -> void:
+func spawn_magenta_impact_flash() -> void:
 	var mesh_instance = MeshInstance3D.new()
 	var sphere = SphereMesh.new()
-	sphere.radius = 0.5
-	sphere.height = 1.0
+	sphere.radius = 0.6
+	sphere.height = 1.2
 	mesh_instance.mesh = sphere
 	
 	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.1, 0.85, 1.0, 0.8) # Bright cyan
+	mat.albedo_color = Color(1.0, 0.15, 0.85, 0.8) # Electric magenta
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mesh_instance.material_override = mat
@@ -106,6 +119,25 @@ func spawn_cyan_impact_flash() -> void:
 		tween.tween_property(mat, "albedo_color:a", 0.0, 0.12)
 		tween.tween_callback(mesh_instance.queue_free)
 
+func get_interception_power() -> float:
+	if close_interception_power > 0.0 or optimal_interception_power > 0.0:
+		var traveled = spawn_position.distance_to(global_position)
+		if traveled >= 6.0:
+			return optimal_interception_power
+		else:
+			return close_interception_power
+	return interception_power
+
+func take_interception_damage(power: float) -> void:
+	interception_durability -= power
+	if interception_durability <= 0.0:
+		is_consumed = true
+		if not is_queued_for_deletion():
+			queue_free()
+
+func take_interception_hit() -> void:
+	take_interception_damage(1.0)
+
 func _on_area_entered(area: Area3D) -> void:
 	if is_consumed:
 		return
@@ -118,11 +150,21 @@ func _on_area_entered(area: Area3D) -> void:
 		if area.has_method("apply_stagger") and stagger_duration > 0.0:
 			area.apply_stagger(stagger_duration, source_actor)
 		if custom_color.a > 0.0:
-			spawn_cyan_impact_flash()
+			spawn_magenta_impact_flash()
 		queue_free()
 	elif area.get("can_be_intercepted") == true:
 		if not area.is_queued_for_deletion():
-			take_interception_hit()
+			if area.get("is_consumed") == true:
+				return
+				
+			var other_power = 1.0
+			if area.has_method("get_interception_power"):
+				other_power = area.get_interception_power()
+				
+			if area.has_method("take_interception_damage"):
+				area.take_interception_damage(get_interception_power())
+				
+			take_interception_damage(other_power)
 
 func _on_body_entered(body: Node3D) -> void:
 	if is_consumed:
@@ -136,12 +178,5 @@ func _on_body_entered(body: Node3D) -> void:
 		if body.has_method("apply_stagger") and stagger_duration > 0.0:
 			body.apply_stagger(stagger_duration, source_actor)
 	if custom_color.a > 0.0:
-		spawn_cyan_impact_flash()
+		spawn_magenta_impact_flash()
 	queue_free()
-
-func take_interception_hit() -> void:
-	interception_durability -= 1
-	if interception_durability <= 0:
-		is_consumed = true
-		if not is_queued_for_deletion():
-			queue_free()

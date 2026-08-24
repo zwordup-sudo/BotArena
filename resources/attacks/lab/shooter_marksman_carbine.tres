@@ -31,3 +31,5 @@ stagger_duration = 0.0
 can_interrupt = false
 optimal_range_threshold = 6.0
 long_range_damage_multiplier = 1.25
+close_interception_power = 0.5
+optimal_interception_power = 1.0

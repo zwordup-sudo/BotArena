@@ -804,6 +804,11 @@ func activate_arms_ability() -> void:
 func execute_disruptor_round(ability: AbilityData) -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
 	proj.source_actor = self
+	proj.damage = projectile_damage * ability.damage_multiplier
+	proj.speed = projectile_speed * ability.projectile_speed_multiplier
+	proj.stagger_duration = ability.stagger_duration
+	proj.custom_color = Color(1.0, 0.15, 0.85)
+	
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
@@ -814,10 +819,6 @@ func execute_disruptor_round(ability: AbilityData) -> void:
 		
 	proj.global_position = muzzle.global_position
 	proj.direction = aim_dir
-	proj.damage = projectile_damage * ability.damage_multiplier
-	proj.speed = projectile_speed * ability.projectile_speed_multiplier
-	proj.stagger_duration = ability.stagger_duration
-	proj.custom_color = Color(0.1, 0.85, 1.0)
 	print("Fired Disruptor Round! Damage: ", proj.damage, " Speed: ", proj.speed, " Stagger: ", proj.stagger_duration)
 
 func execute_burst_volley(ability: AbilityData) -> void:
@@ -1530,6 +1531,8 @@ func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
 		if attack_data.optimal_range_threshold > 0.0:
 			proj.optimal_range_threshold = attack_data.optimal_range_threshold
 			proj.long_range_damage_multiplier = attack_data.long_range_damage_multiplier
+			proj.close_interception_power = attack_data.close_interception_power
+			proj.optimal_interception_power = attack_data.optimal_interception_power
 
 func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: float) -> void:
 	var proj = proj_scene.instantiate()
@@ -1553,6 +1556,8 @@ func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: floa
 		if attack_data and attack_data.optimal_range_threshold > 0.0:
 			proj.optimal_range_threshold = attack_data.optimal_range_threshold
 			proj.long_range_damage_multiplier = attack_data.long_range_damage_multiplier
+			proj.close_interception_power = attack_data.close_interception_power
+			proj.optimal_interception_power = attack_data.optimal_interception_power
 
 func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	var range_val = attack_data.melee_range

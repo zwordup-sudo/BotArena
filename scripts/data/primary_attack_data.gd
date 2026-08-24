@@ -47,3 +47,7 @@ enum AttackType {
 # Shooter Role Lab 0.1 optimal range fields
 @export var optimal_range_threshold: float = 0.0
 @export var long_range_damage_multiplier: float = 1.0
+
+# Shooter Polish 0.2 interception power scaling
+@export var close_interception_power: float = 0.0
+@export var optimal_interception_power: float = 0.0
