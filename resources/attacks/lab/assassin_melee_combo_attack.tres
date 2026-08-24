@@ -19,4 +19,6 @@ combo_multipliers = [1.0, 1.0, 1.35]
 combo_reset_time = 0.85
 projectile_interception_limit = 1
 projectile_interception_power = 1
-projectile_interception_range = 1.75
+projectile_interception_range = 1.90
+projectile_interception_window = 0.14
+projectile_interception_arc_degrees = 105.0

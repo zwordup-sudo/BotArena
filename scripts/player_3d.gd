@@ -115,6 +115,12 @@ var ghost_buffer_charges: int = 0
 var execution_refresh_window_timer: float = 0.0
 var execution_refresh_triggered_this_activation: bool = false
 
+# Active Melee Projectile Interception window tracking (Assassin Polish 0.3)
+var is_melee_intercepting: bool = false
+var melee_interception_timer: float = 0.0
+var melee_intercepted_count: int = 0
+var current_melee_interception_data: PrimaryAttackData = null
+
 var current_build_name: String = "BALANCED"
 
 # Combo State tracking fields
@@ -188,6 +194,11 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	ghost_buffer_charges = 0
 	execution_refresh_window_timer = 0.0
 	execution_refresh_triggered_this_activation = false
+	
+	is_melee_intercepting = false
+	melee_interception_timer = 0.0
+	melee_intercepted_count = 0
+	current_melee_interception_data = null
 	
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -358,6 +369,14 @@ func _process(delta: float) -> void:
 	# Update execution refresh window timer
 	if execution_refresh_window_timer > 0.0:
 		execution_refresh_window_timer -= delta
+			
+	# Update active melee interception window (Assassin Polish 0.3)
+	if is_melee_intercepting:
+		melee_interception_timer -= delta
+		if melee_interception_timer <= 0.0:
+			is_melee_intercepting = false
+		else:
+			process_melee_interception()
 			
 	# Update evasion window timer
 	if is_evading_projectiles:
@@ -744,6 +763,63 @@ func execute_execution_rush(ability: AbilityData) -> void:
 		visual_arc = arms_atk.melee_arc_degrees
 		
 	create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.2, 0.2, 0.8), 0.18)
+
+func process_melee_interception() -> void:
+	if not current_melee_interception_data:
+		return
+		
+	var limit = current_melee_interception_data.projectile_interception_limit
+	var power = current_melee_interception_data.projectile_interception_power
+	var intercept_range = current_melee_interception_data.projectile_interception_range
+	var intercept_arc = current_melee_interception_data.projectile_interception_arc_degrees
+	
+	if melee_intercepted_count >= limit:
+		is_melee_intercepting = false
+		return
+		
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	# Query overlapping Areas inside interception range
+	var space_state = get_world_3d().direct_space_state
+	var eq = PhysicsShapeQueryParameters3D.new()
+	var esph = SphereShape3D.new()
+	esph.radius = intercept_range
+	eq.shape = esph
+	eq.transform = global_transform
+	eq.exclude = [get_rid()]
+	eq.collide_with_areas = true
+	eq.collide_with_bodies = false
+	
+	var candidates = space_state.intersect_shape(eq)
+	var best_proj: Area3D = null
+	var best_proj_dist: float = 999.0
+	
+	for cand in candidates:
+		var proj_area = cand.collider as Area3D
+		if is_instance_valid(proj_area) and proj_area.is_in_group("hostile_projectile") and proj_area.get("can_be_intercepted") == true:
+			var diff = proj_area.global_position - global_position
+			diff.y = 0.0
+			var d = diff.length()
+			if d <= intercept_range:
+				var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
+				if angle <= intercept_arc / 2.0:
+					if d < best_proj_dist:
+						best_proj_dist = d
+						best_proj = proj_area
+						
+	if best_proj:
+		# Slice projectile
+		for i in range(power):
+			if is_instance_valid(best_proj) and best_proj.has_method("take_interception_hit"):
+				best_proj.take_interception_hit()
+		print("Melee Intercepted hostile projectile inside active window: ", best_proj.name)
+		
+		# Swing's single opportunity is exhausted
+		melee_intercepted_count += 1
+		if melee_intercepted_count >= limit:
+			is_melee_intercepting = false
 
 func activate_legs_ability() -> void:
 	if not bot_build or not bot_build.legs or not bot_build.legs.active_ability:
@@ -1172,45 +1248,17 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 			var move_vec = aim_dir * engage_dist
 			var collision = move_and_collide(move_vec)
 			
-	# Execute limited melee projectile interception (at most 1 projectile)
+	# Start projectile interception window if configured (Assassin Polish 0.3)
 	var intercept_limit = attack_data.projectile_interception_limit
-	var intercept_power = attack_data.projectile_interception_power
-	var intercept_range = attack_data.projectile_interception_range
+	var intercept_window = attack_data.projectile_interception_window
 	
-	if intercept_limit > 0 and intercept_range > 0.0:
-		var space_state = get_world_3d().direct_space_state
-		var eq = PhysicsShapeQueryParameters3D.new()
-		var esph = SphereShape3D.new()
-		esph.radius = intercept_range
-		eq.shape = esph
-		eq.transform = global_transform
-		eq.exclude = [get_rid()]
-		eq.collide_with_areas = true
-		eq.collide_with_bodies = false # Projectiles are Areas
-		
-		var candidates = space_state.intersect_shape(eq)
-		var best_proj: Area3D = null
-		var best_proj_dist: float = 999.0
-		
-		for cand in candidates:
-			var proj_area = cand.collider as Area3D
-			if is_instance_valid(proj_area) and proj_area.is_in_group("hostile_projectile") and proj_area.get("can_be_intercepted") == true:
-				var diff = proj_area.global_position - global_position
-				diff.y = 0.0
-				var d = diff.length()
-				if d <= intercept_range:
-					var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
-					if angle <= arc_deg / 2.0:
-						if d < best_proj_dist:
-							best_proj_dist = d
-							best_proj = proj_area
-							
-		if best_proj:
-			# Subtract durability based on interception power
-			for i in range(intercept_power):
-				if is_instance_valid(best_proj) and best_proj.has_method("take_interception_hit"):
-					best_proj.take_interception_hit()
-			print("Melee Intercepted hostile projectile: ", best_proj.name)
+	if intercept_limit > 0 and intercept_window > 0.0:
+		is_melee_intercepting = true
+		melee_interception_timer = intercept_window
+		melee_intercepted_count = 0
+		current_melee_interception_data = attack_data
+		# Run immediate slice attempt on trigger frame
+		process_melee_interception()
 			
 	# One-shot physics query including areas (enemies and target dummy are Area3Ds)
 	var space_state = get_world_3d().direct_space_state
@@ -1231,6 +1279,13 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	var reset_time = attack_data.combo_reset_time
 	var combo_mults = attack_data.combo_multipliers
 	
+	# Determine visual boundaries (Interception arc is larger than damage arc)
+	var visual_range = range_val
+	var visual_arc = arc_deg
+	if intercept_limit > 0:
+		visual_range = attack_data.projectile_interception_range
+		visual_arc = attack_data.projectile_interception_arc_degrees
+	
 	if reset_time > 0.0 and combo_mults.size() > 0:
 		if now - last_attack_time > reset_time:
 			current_combo_index = 0
@@ -1245,11 +1300,11 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 		
 		# For third hit finisher, create a brighter and slightly longer visual sweep
 		if is_finisher:
-			create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.4, 0.2, 0.7), 0.18)
+			create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.4, 0.2, 0.7), 0.18)
 		else:
-			create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.8, 0.2, 0.3), 0.10)
+			create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.9, 0.4, 0.4), 0.10)
 	else:
-		create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.8, 0.2, 0.3), 0.10)
+		create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.9, 0.4, 0.4), 0.10)
 	
 	print("\n--- MELEE SWING ---")
 	print("Candidates found: ", results.size())

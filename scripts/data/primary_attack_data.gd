@@ -32,3 +32,7 @@ enum AttackType {
 @export var projectile_interception_limit: int = 0
 @export var projectile_interception_power: int = 0
 @export var projectile_interception_range: float = 0.0
+
+# Assassin Polish 0.3 Projectile Interception window fields
+@export var projectile_interception_window: float = 0.0
+@export var projectile_interception_arc_degrees: float = 0.0

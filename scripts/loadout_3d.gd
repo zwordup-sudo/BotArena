@@ -160,6 +160,10 @@ func update_build_and_preview() -> void:
 				primary_atk_txt += "\nEngage Range: " + str(atk.engage_range) + " | Engage Step: " + str(atk.engage_distance)
 			primary_atk_txt += "\nDamage multiplier: " + str(int(atk.damage_multiplier * 100.0)) + "%" + \
 				"\nAttack rate multiplier: " + str(int(atk.attack_rate_multiplier * 100.0)) + "%"
+			if atk.get("projectile_interception_limit") != null and atk.projectile_interception_limit > 0:
+				primary_atk_txt += "\nProjectile Cut: " + str(atk.projectile_interception_limit) + " projectile per swing" + \
+					"\nInterception Power: " + str(atk.projectile_interception_power) + \
+					"\nRange: ~" + str(atk.projectile_interception_range)
 			if atk.get("combo_multipliers") != null and atk.combo_multipliers.size() > 0:
 				primary_atk_txt += "\nCombo:"
 				for i in range(atk.combo_multipliers.size()):
