@@ -28,3 +28,8 @@ enum Slot { CORE, ARMS, LEGS }
 
 # Primary Attack (Arms only)
 @export var primary_attack: Resource
+
+# Role Affinity fields (descriptive build profile)
+@export var tank_affinity: float = 0.0
+@export var assassin_affinity: float = 0.0
+@export var shooter_affinity: float = 0.0

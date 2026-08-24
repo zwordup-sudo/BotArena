@@ -33,7 +33,7 @@ const SHOOTER_TEST_LEGS = preload("res://resources/parts/legs/shooter_test_legs.
 @onready var arms_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ArmsDesc
 @onready var legs_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/LegsContainer/LegsSelector
 @onready var legs_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/LegsDesc
-@onready var stats_label: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/StatsPanel/StatsLabel
+@onready var stats_label: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/StatsPanel/MarginContainer/StatsLabel
 @onready var enter_button: Button = $MarginContainer/VBoxContainer/EnterButton
 
 var current_build: Resource
@@ -243,6 +243,20 @@ func update_build_and_preview() -> void:
 			"Energy: " + str(int(ab.energy_cost)) + " | Cooldown: " + str(ab.cooldown) + "s | Duration/Window: " + dur_str + "\n" + \
 			ab.description
 	
+	# Calculate Role Profile
+	var profile = load("res://scripts/data/bot_role_calculator.gd").calculate(current_build)
+	var coverage_str = "Coverage:\n%d%%" % int(profile.coverage_percentage)
+	if profile.is_partial:
+		coverage_str += "\n\nPARTIAL PROFILE"
+		
+	var role_profile_txt = (
+		"ROLE PROFILE\n\n" +
+		"Tank       %3d%%\n" % int(profile.tank_percentage) +
+		"Assassin   %3d%%\n" % int(profile.assassin_percentage) +
+		"Shooter    %3d%%\n\n" % int(profile.shooter_percentage) +
+		coverage_str
+	)
+	
 	stats_label.text = (
 		"BUILD: " + build_name + stress_txt + "\n" +
 		"HP: " + str(int(calc.max_health)) + " | MOVE: " + str(snapped(calc.movement_speed, 0.1)) + " | FIRE: " + str(snapped(calc.fire_rate, 0.01)) + " | DMG: " + str(int(calc.projectile_damage)) + "\n" +
@@ -253,7 +267,8 @@ func update_build_and_preview() -> void:
 		"ENERGY: 100 | ENERGY REGEN: 5.0 / s\n" +
 		ability_txt + "\n\n" +
 		arms_txt + "\n\n" +
-		legs_txt
+		legs_txt + "\n\n========================================\n" +
+		role_profile_txt
 	)
 
 func _on_enter_pressed() -> void:
