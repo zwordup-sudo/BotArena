@@ -11,6 +11,7 @@ const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
 const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
 const MELEE_TEST_ARMS = preload("res://resources/parts/arms/melee_test_arms.tres")
 const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arms.tres")
+const TANK_TEST_ARMS = preload("res://resources/parts/arms/tank_test_arms.tres")
 
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
@@ -18,7 +19,7 @@ const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_legs.tres")
 
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
@@ -150,7 +151,7 @@ func update_build_and_preview() -> void:
 		if atk_type == 1:
 			type_name = "Melee Arc"
 		elif atk_type == 2:
-			type_name = "Thrust"
+			type_name = "Thrust Impact"
 		primary_atk_txt = "PRIMARY ATTACK: " + type_name
 		
 		# For Melee Arc, display extra details
@@ -171,6 +172,13 @@ func update_build_and_preview() -> void:
 						primary_atk_txt += "\n" + str(i + 1) + ". " + str(atk.combo_multipliers[i]) + "x Finisher"
 					else:
 						primary_atk_txt += "\n" + str(i + 1) + ". " + str(atk.combo_multipliers[i]) + "x"
+		elif atk_type == 2: # THRUST_IMPACT
+			primary_atk_txt += "\nRange: " + str(atk.impact_range) + " | Width: " + str(atk.impact_width) + \
+				"\nDamage multiplier: " + str(int(atk.damage_multiplier * 100.0)) + "%" + \
+				"\nAttack Rate multiplier: " + str(int(atk.attack_rate_multiplier * 100.0)) + "%" + \
+				"\nWindup: " + str(atk.windup_time) + "s" + \
+				"\nStagger: " + str(atk.stagger_duration) + "s" + \
+				"\nInterrupt: " + ("Yes" if atk.can_interrupt else "No")
 		
 	# Core active ability summary
 	var ability_txt = "CORE ABILITY: None"

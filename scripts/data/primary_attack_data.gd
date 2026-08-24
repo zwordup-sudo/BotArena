@@ -4,7 +4,7 @@ extends Resource
 enum AttackType {
 	PROJECTILE,
 	MELEE_ARC,
-	THRUST
+	THRUST_IMPACT
 }
 
 @export var id: String = ""
@@ -36,3 +36,10 @@ enum AttackType {
 # Assassin Polish 0.3 Projectile Interception window fields
 @export var projectile_interception_window: float = 0.0
 @export var projectile_interception_arc_degrees: float = 0.0
+
+# Tank Lab 0.1 Thrust / Impact fields
+@export var impact_range: float = 0.0
+@export var impact_width: float = 0.0
+@export var windup_time: float = 0.0
+@export var stagger_duration: float = 0.0
+@export var can_interrupt: bool = false

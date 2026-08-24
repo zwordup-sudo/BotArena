@@ -118,6 +118,12 @@ func take_damage(amount: float, source: Node = null) -> void:
 			source.notify_kill(self)
 		die()
 
+func apply_stagger(duration: float, source: Node = null) -> void:
+	if current_state == State.TELEGRAPH or current_state == State.CHARGE:
+		print("Charger attack interrupted by Tank Impact!")
+		print("INTERRUPT")
+		transition_to(State.RECOVERY)
+
 func die() -> void:
 	is_dead = true
 	visible = false

@@ -15,10 +15,15 @@ const HOSTILE_PROJECTILE = preload("res://scenes/enemy_projectile_3d.tscn")
 var fire_timer: float = 0.0
 var is_dead: bool = false
 var has_fired_initial: bool = false
+var stagger_timer: float = 0.0
 
 func _process(delta: float) -> void:
 	if is_dead:
 		return
+		
+	if stagger_timer > 0.0:
+		stagger_timer -= delta
+		return # Cannot shoot during stagger
 		
 	fire_timer += delta
 	if not has_fired_initial:
@@ -62,6 +67,10 @@ func take_damage(amount: float, source: Node = null) -> void:
 			source.notify_kill(self)
 		die()
 
+func apply_stagger(duration: float, source: Node = null) -> void:
+	stagger_timer = duration
+	print(name, " staggered for ", duration, " seconds by ", (source.name if source else "unknown"))
+
 func die() -> void:
 	is_dead = true
 	visible = false
@@ -78,4 +87,5 @@ func respawn() -> void:
 	process_mode = PROCESS_MODE_INHERIT
 	is_dead = false
 	fire_timer = 0.0
+	stagger_timer = 0.0
 	has_fired_initial = false

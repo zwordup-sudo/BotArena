@@ -36,6 +36,7 @@ const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
 const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
 const MELEE_TEST_ARMS = preload("res://resources/parts/arms/melee_test_arms.tres")
 const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arms.tres")
+const TANK_TEST_ARMS = preload("res://resources/parts/arms/tank_test_arms.tres")
 
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
@@ -43,7 +44,7 @@ const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_legs.tres")
 
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS]
 
 var core_idx: int = 0
@@ -120,6 +121,12 @@ var is_melee_intercepting: bool = false
 var melee_interception_timer: float = 0.0
 var melee_intercepted_count: int = 0
 var current_melee_interception_data: PrimaryAttackData = null
+
+# Windup State tracking fields (Tank Lab 0.1)
+var is_winding_up: bool = false
+var windup_timer: float = 0.0
+var current_windup_attack_data: PrimaryAttackData = null
+var windup_aim_direction: Vector3 = Vector3.ZERO
 
 var current_build_name: String = "BALANCED"
 
@@ -199,6 +206,11 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	melee_interception_timer = 0.0
 	melee_intercepted_count = 0
 	current_melee_interception_data = null
+	
+	is_winding_up = false
+	windup_timer = 0.0
+	current_windup_attack_data = null
+	windup_aim_direction = Vector3.ZERO
 	
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -369,6 +381,14 @@ func _process(delta: float) -> void:
 	# Update execution refresh window timer
 	if execution_refresh_window_timer > 0.0:
 		execution_refresh_window_timer -= delta
+		
+	# Update windup timer (Tank Lab 0.1)
+	if is_winding_up:
+		windup_timer -= delta
+		if windup_timer <= 0.0:
+			is_winding_up = false
+			if current_windup_attack_data:
+				execute_thrust_impact_hit(current_windup_attack_data, windup_aim_direction)
 			
 	# Update active melee interception window (Assassin Polish 0.3)
 	if is_melee_intercepting:
@@ -419,8 +439,8 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("legs_ability"):
 		activate_legs_ability()
 		
-	# Primary Attack - Disabled during Burst Volley, Charged Shot Charging, and Rocket Lunge
-	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging
+	# Primary Attack - Disabled during Burst Volley, Charged Shot Charging, Rocket Lunge, and Windup
+	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging and not is_winding_up
 	if fire_allowed and bot_build and bot_build.arms and bot_build.arms.primary_attack:
 		var atk = bot_build.arms.primary_attack as PrimaryAttackData
 		if atk:
@@ -1153,6 +1173,8 @@ func shoot() -> void:
 		execute_projectile_primary(attack_data)
 	elif attack_type == 1: # MELEE_ARC
 		execute_melee_arc_primary(attack_data)
+	elif attack_type == 2: # THRUST_IMPACT
+		execute_thrust_impact_primary(attack_data)
 	else:
 		push_warning("Primary attack failed: Unsupported attack type: " + str(attack_type))
 
@@ -1336,6 +1358,91 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 				print("  Damage applied: ", final_dmg)
 			else:
 				print("  Damage applied: 0")
+
+func execute_thrust_impact_primary(attack_data: PrimaryAttackData) -> void:
+	# Lock aim direction at the start of windup
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	is_winding_up = true
+	windup_timer = attack_data.windup_time
+	current_windup_attack_data = attack_data
+	windup_aim_direction = aim_dir
+
+func execute_thrust_impact_hit(attack_data: PrimaryAttackData, aim_dir: Vector3) -> void:
+	var range_val = attack_data.impact_range
+	var width_val = attack_data.impact_width
+	var dmg_mult = attack_data.damage_multiplier
+	var stagger_dur = attack_data.stagger_duration
+	
+	# One-shot physics query using a sphere shape spanning the impact range
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsShapeQueryParameters3D.new()
+	var sphere = SphereShape3D.new()
+	sphere.radius = range_val
+	query.shape = sphere
+	query.transform = global_transform
+	query.exclude = [get_rid()]
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	
+	var results = space_state.intersect_shape(query)
+	var final_dmg = projectile_damage * dmg_mult
+	
+	print("\n--- THRUST IMPACT HIT ---")
+	print("Candidates in sphere: ", results.size())
+	
+	# Create visual effect
+	create_thrust_visual(range_val, width_val, aim_dir)
+	
+	for res in results:
+		var collider = res.collider
+		if is_instance_valid(collider) and collider.has_method("take_damage"):
+			var rel = collider.global_position - global_position
+			rel.y = 0.0
+			
+			# Check frontal bounds projection
+			var dot = rel.dot(aim_dir)
+			var perp_vector = Vector3(-aim_dir.z, 0.0, aim_dir.x)
+			var perp_dist = abs(rel.dot(perp_vector))
+			
+			var inside_box = (dot >= 0.0) and (dot <= range_val) and (perp_dist <= width_val / 2.0)
+			
+			if inside_box:
+				collider.take_damage(final_dmg, self)
+				print("Hit Target: ", collider.name, " inside impact box. Damage applied: ", final_dmg)
+				
+				if collider.has_method("apply_stagger"):
+					collider.apply_stagger(stagger_dur, self)
+
+func create_thrust_visual(range_val: float, width_val: float, aim_dir: Vector3) -> void:
+	var mesh_instance = MeshInstance3D.new()
+	var box_mesh = BoxMesh.new()
+	box_mesh.size = Vector3(width_val, 0.2, range_val)
+	mesh_instance.mesh = box_mesh
+	
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.3, 0.6, 1.0, 0.6)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh_instance.material_override = mat
+	
+	var level = get_parent()
+	if level:
+		level.add_child(mesh_instance)
+		
+		# Center box in front of player
+		var center_pos = global_position + aim_dir * (range_val / 2.0) + Vector3(0.0, 0.2, 0.0)
+		mesh_instance.global_position = center_pos
+		
+		# Orient to align with aim direction
+		if aim_dir.length_squared() > 0.001:
+			mesh_instance.global_transform = mesh_instance.global_transform.looking_at(center_pos + aim_dir, Vector3.UP)
+			
+		var tween = create_tween()
+		tween.tween_property(mat, "albedo_color:a", 0.0, 0.15)
+		tween.tween_callback(mesh_instance.queue_free)
 
 func create_melee_visual(range_val: float, arc_deg: float) -> void:
 	create_melee_visual_custom(range_val, arc_deg, Color(1.0, 0.8, 0.2, 0.3), 0.12)
