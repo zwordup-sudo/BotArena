@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
+
+[ext_resource type="Resource" path="res://resources/abilities/arms/shooter_disruptor_round.tres" id="1_ability"]
+[ext_resource type="Resource" path="res://resources/attacks/lab/shooter_marksman_carbine.tres" id="2_attack"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="3_partdata"]
+
+[resource]
+script = ExtResource("3_partdata")
+id = "shooter_test_arms"
+display_name = "Shooter Test Arms"
+slot = 1
+system = "Standard"
+max_health_pct = 0.0
+movement_speed_pct = -0.02
+fire_rate_pct = -0.05
+projectile_damage_pct = 0.10
+projectile_speed_pct = 0.15
+dash_speed_pct = 0.0
+dash_cooldown_pct = 0.0
+dash_duration_pct = 0.0
+power_cost = 35.0
+weight_cost = 20.0
+thermal_load = 35.0
+active_ability = ExtResource("1_ability")
+primary_attack = ExtResource("2_attack")

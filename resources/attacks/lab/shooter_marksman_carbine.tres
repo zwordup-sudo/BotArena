@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PrimaryAttackData" load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/projectile_3d.tscn" id="1_scene"]
+[ext_resource type="Script" path="res://scripts/data/primary_attack_data.gd" id="2_script"]
+
+[resource]
+script = ExtResource("2_script")
+id = "shooter_marksman_carbine"
+display_name = "Marksman Carbine"
+attack_type = 0
+projectile_scene = ExtResource("1_scene")
+can_hold_to_attack = true
+melee_range = 0.0
+melee_arc_degrees = 0.0
+damage_multiplier = 1.0
+attack_rate_multiplier = 0.90
+engage_range = 0.0
+engage_distance = 0.0
+engage_cone_degrees = 0.0
+combo_multipliers = []
+combo_reset_time = 0.0
+projectile_interception_limit = 0
+projectile_interception_power = 0
+projectile_interception_range = 0.0
+projectile_interception_window = 0.0
+projectile_interception_arc_degrees = 0.0
+impact_range = 0.0
+impact_width = 0.0
+windup_time = 0.0
+stagger_duration = 0.0
+can_interrupt = false
+optimal_range_threshold = 6.0
+long_range_damage_multiplier = 1.25

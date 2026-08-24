@@ -31,6 +31,7 @@ const LIGHT_CORE = preload("res://resources/parts/core/light_core.tres")
 const HEAVY_CORE = preload("res://resources/parts/core/heavy_core.tres")
 const ASSASSIN_TEST_CORE = preload("res://resources/parts/core/assassin_test_core.tres")
 const TANK_TEST_CORE = preload("res://resources/parts/core/tank_test_core.tres")
+const SHOOTER_TEST_CORE = preload("res://resources/parts/core/shooter_test_core.tres")
 
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
@@ -38,16 +39,18 @@ const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
 const MELEE_TEST_ARMS = preload("res://resources/parts/arms/melee_test_arms.tres")
 const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arms.tres")
 const TANK_TEST_ARMS = preload("res://resources/parts/arms/tank_test_arms.tres")
+const SHOOTER_TEST_ARMS = preload("res://resources/parts/arms/shooter_test_arms.tres")
 
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_legs.tres")
 const TANK_TEST_LEGS = preload("res://resources/parts/legs/tank_test_legs.tres")
+const SHOOTER_TEST_LEGS = preload("res://resources/parts/legs/shooter_test_legs.tres")
 
-@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS]
-@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS]
+@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS]
+@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS]
 
 var core_idx: int = 0
 var arms_idx: int = 0
@@ -147,6 +150,17 @@ var siege_drive_speed: float = 0.0
 var siege_drive_stagger_duration: float = 0.0
 var siege_drive_has_contacted: bool = false
 
+# Overwatch Matrix temporary stats modifiers (Shooter Core)
+var overwatch_fire_rate_modifier: float = 0.0
+var overwatch_projectile_speed_modifier: float = 0.0
+var overwatch_movement_speed_modifier: float = 0.0
+
+# Vector Strafe fields (Shooter Legs)
+var is_vector_strafing: bool = false
+var vector_strafe_timer: float = 0.0
+var vector_strafe_direction: Vector3 = Vector3.ZERO
+var vector_strafe_speed: float = 0.0
+
 var current_build_name: String = "BALANCED"
 
 # Combo State tracking fields
@@ -184,8 +198,8 @@ func recalculate_stats() -> void:
 		var calc = load("res://scripts/data/bot_stat_calculator.gd").calculate(bot_build)
 		max_health = calc.max_health
 		
-		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp
-		speed = calc.movement_speed * (1.0 + core_temp_speed_mod)
+		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp + Overwatch Matrix
+		speed = calc.movement_speed * (1.0 + core_temp_speed_mod + overwatch_movement_speed_modifier)
 		
 		# Calculate temporary fire rate flat bonuses (Twin Stream) and primary attack modifiers (Melee swing rate scaling)
 		var rate_mult = 1.0
@@ -198,9 +212,9 @@ func recalculate_stats() -> void:
 		if is_arms_active and bot_build and bot_build.arms and bot_build.arms.active_ability:
 			twin_fire_bonus = bot_build.arms.active_ability.fire_rate_flat_bonus
 			
-		fire_rate = (calc.fire_rate * arms_temp_fire_rate_multiplier * rate_mult) + twin_fire_bonus
+		fire_rate = (calc.fire_rate * arms_temp_fire_rate_multiplier * rate_mult * (1.0 + overwatch_fire_rate_modifier)) + twin_fire_bonus
 		projectile_damage = calc.projectile_damage * arms_temp_projectile_damage_multiplier
-		projectile_speed = calc.projectile_speed
+		projectile_speed = calc.projectile_speed * (1.0 + overwatch_projectile_speed_modifier)
 		
 		dash_speed = calc.dash_speed * (1.0 + core_temp_dash_speed_mod)
 		dash_duration = calc.dash_duration
@@ -246,6 +260,15 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	siege_drive_speed = 0.0
 	siege_drive_stagger_duration = 0.0
 	siege_drive_has_contacted = false
+	
+	overwatch_fire_rate_modifier = 0.0
+	overwatch_projectile_speed_modifier = 0.0
+	overwatch_movement_speed_modifier = 0.0
+	
+	is_vector_strafing = false
+	vector_strafe_timer = 0.0
+	vector_strafe_direction = Vector3.ZERO
+	vector_strafe_speed = 0.0
 	
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -398,6 +421,18 @@ func _physics_process(delta: float) -> void:
 				if phys_collider and phys_collider.has_method("take_damage"):
 					if phys_collider.has_method("apply_stagger"):
 						phys_collider.apply_stagger(siege_drive_stagger_duration, self)
+			return
+
+	# Handle Vector Strafe Movement (Shooter Legs committed strafe reposition)
+	if is_vector_strafing:
+		vector_strafe_timer -= delta
+		if vector_strafe_timer <= 0.0:
+			is_vector_strafing = false
+			is_legs_active = false
+			update_mesh_color()
+		else:
+			velocity = vector_strafe_direction * vector_strafe_speed
+			move_and_slide()
 			return
 
 	# Handle Rocket Lunge Movement (strongly committed lunge)
@@ -576,6 +611,17 @@ func activate_core_ability() -> void:
 		start_ghost_buffer(ability)
 	elif effect_type == 12: # REACTIVE_PLATING (Tank Core Survive)
 		start_reactive_plating(ability)
+	elif effect_type == 15: # OVERWATCH_MATRIX (Shooter Core Position)
+		start_overwatch_matrix(ability)
+
+func start_overwatch_matrix(ability: AbilityData) -> void:
+	is_core_active = true
+	core_duration_timer = ability.duration
+	overwatch_fire_rate_modifier = ability.temporary_fire_rate_pct
+	overwatch_projectile_speed_modifier = ability.temporary_projectile_speed_pct
+	overwatch_movement_speed_modifier = ability.temporary_movement_speed_pct
+	update_mesh_color()
+	recalculate_stats()
 
 func start_directional_barrier(ability: AbilityData) -> void:
 	is_core_active = true
@@ -693,6 +739,10 @@ func end_core_ability() -> void:
 	reactive_plating_charges = 0
 	reactive_plating_damage_multiplier = 1.0
 	
+	overwatch_fire_rate_modifier = 0.0
+	overwatch_projectile_speed_modifier = 0.0
+	overwatch_movement_speed_modifier = 0.0
+	
 	# Clear barrier node
 	if is_instance_valid(barrier_node):
 		barrier_node.queue_free()
@@ -709,16 +759,9 @@ func activate_arms_ability() -> void:
 	if not ability:
 		return
 		
-	var effect_type = ability.effect_type
-	if effect_type == 11: # EXECUTION_RUSH (Assassin E)
+	# 1. Pre-validation and custom Assassin Execution check
+	if ability.effect_type == AbilityData.EffectType.EXECUTION_RUSH:
 		execute_execution_rush(ability)
-		return
-	elif effect_type == 13: # CONCUSSIVE_SLAM (Tank E)
-		if arms_cooldown_timer > 0.0: return
-		if current_energy < ability.energy_cost: return
-		current_energy -= ability.energy_cost
-		arms_cooldown_timer = ability.cooldown
-		start_concussive_slam(ability)
 		return
 		
 	if arms_cooldown_timer > 0.0:
@@ -726,15 +769,56 @@ func activate_arms_ability() -> void:
 	if current_energy < ability.energy_cost:
 		return
 		
-	current_energy -= ability.energy_cost
-	arms_cooldown_timer = ability.cooldown
+	# 2. Unified dispatcher using AbilityData.EffectType enums
+	var dispatched = false
+	match ability.effect_type:
+		AbilityData.EffectType.BURST_VOLLEY:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			execute_burst_volley(ability)
+			dispatched = true
+		AbilityData.EffectType.TWIN_STREAM:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			start_arms_twin_stream(ability)
+			dispatched = true
+		AbilityData.EffectType.CHARGED_SHOT:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			start_arms_charged_shot(ability)
+			dispatched = true
+		AbilityData.EffectType.CONCUSSIVE_SLAM:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			start_concussive_slam(ability)
+			dispatched = true
+		AbilityData.EffectType.DISRUPTOR_ROUND:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			execute_disruptor_round(ability)
+			dispatched = true
+			
+	if not dispatched:
+		push_warning("Arms ability activation failed: Unsupported effect type: " + str(ability.effect_type))
+
+func execute_disruptor_round(ability: AbilityData) -> void:
+	var proj = PROJECTILE_SCENE.instantiate()
+	proj.source_actor = self
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
 	
-	if effect_type == 3: # BURST_VOLLEY
-		execute_burst_volley(ability)
-	elif effect_type == 4: # TWIN_STREAM
-		start_arms_twin_stream(ability)
-	elif effect_type == 5: # CHARGED_SHOT
-		start_arms_charged_shot(ability)
+	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+	if projectiles_node:
+		projectiles_node.add_child(proj)
+		
+	proj.global_position = muzzle.global_position
+	proj.direction = aim_dir
+	proj.damage = projectile_damage * ability.damage_multiplier
+	proj.speed = projectile_speed * ability.projectile_speed_multiplier
+	proj.stagger_duration = ability.stagger_duration
+	proj.custom_color = Color(0.1, 0.85, 1.0)
+	print("Fired Disruptor Round! Damage: ", proj.damage, " Speed: ", proj.speed, " Stagger: ", proj.stagger_duration)
 
 func execute_burst_volley(ability: AbilityData) -> void:
 	is_burst_volley_active = true
@@ -1062,6 +1146,30 @@ func activate_legs_ability() -> void:
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
 		start_siege_drive(ability)
+	elif effect_type == 17: # VECTOR_STRAFE (Shooter Legs Strafe)
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
+		current_energy -= ability.energy_cost
+		legs_cooldown_timer = ability.cooldown
+		start_vector_strafe(ability)
+
+func start_vector_strafe(ability: AbilityData) -> void:
+	is_legs_active = true
+	is_vector_strafing = true
+	vector_strafe_timer = ability.duration
+	vector_strafe_speed = ability.ability_move_speed
+	
+	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
+	if move_dir.length_squared() > 0.001:
+		vector_strafe_direction = move_dir.normalized()
+	else:
+		var aim_dir = -aim_pivot.global_transform.basis.z
+		aim_dir.y = 0.0
+		vector_strafe_direction = -aim_dir.normalized()
+		
+	update_mesh_color()
 
 func create_anchor_marker(pos: Vector3) -> void:
 	vector_anchor_marker = MeshInstance3D.new()
@@ -1214,6 +1322,11 @@ func update_mesh_color() -> void:
 		mat.albedo_color = Color(1.0, 0.8, 0.2)
 		mat.roughness = 0.2
 		mesh.material_override = mat
+	elif is_vector_strafing: # Vector Strafe (cyan)
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.2, 0.9, 0.9)
+		mat.roughness = 0.2
+		mesh.material_override = mat
 	elif is_arms_active: # Twin Stream
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(1.0, 0.2, 0.6)
@@ -1253,6 +1366,12 @@ func update_mesh_color() -> void:
 			var mat = StandardMaterial3D.new()
 			mat.albedo_color = Color(0.9, 0.7, 0.1)
 			mat.roughness = 0.2
+			mesh.material_override = mat
+		elif ability_type == 15: # Overwatch Matrix (translucent green/grey)
+			var mat = StandardMaterial3D.new()
+			mat.albedo_color = Color(0.4, 0.8, 0.4, 0.5)
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			mesh.material_override = mat
 	elif is_vector_anchor_active:
 		var mat = StandardMaterial3D.new()
@@ -1318,6 +1437,8 @@ func update_canvas_hud() -> void:
 			if ability:
 				var ab_name = ability.display_name.to_upper()
 				if is_siege_driving:
+					legs_status = ab_name + " - ACTIVE"
+				elif is_vector_strafing:
 					legs_status = ab_name + " - ACTIVE"
 				elif is_vector_anchor_active:
 					legs_status = ab_name + " - RETURN " + str(snapped(vector_anchor_timer, 0.1)) + "s"
@@ -1406,6 +1527,9 @@ func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
 		proj.direction = aim_dir
 		proj.damage = projectile_damage
 		proj.speed = projectile_speed
+		if attack_data.optimal_range_threshold > 0.0:
+			proj.optimal_range_threshold = attack_data.optimal_range_threshold
+			proj.long_range_damage_multiplier = attack_data.long_range_damage_multiplier
 
 func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: float) -> void:
 	var proj = proj_scene.instantiate()
@@ -1424,6 +1548,11 @@ func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: floa
 	# Twin Stream deals 55% normal effective damage
 	proj.damage = projectile_damage * 0.55
 	proj.speed = projectile_speed
+	if bot_build and bot_build.arms and bot_build.arms.primary_attack:
+		var attack_data = bot_build.arms.primary_attack as PrimaryAttackData
+		if attack_data and attack_data.optimal_range_threshold > 0.0:
+			proj.optimal_range_threshold = attack_data.optimal_range_threshold
+			proj.long_range_damage_multiplier = attack_data.long_range_damage_multiplier
 
 func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	var range_val = attack_data.melee_range

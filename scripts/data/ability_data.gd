@@ -16,7 +16,10 @@ enum EffectType {
 	EXECUTION_RUSH,
 	REACTIVE_PLATING,
 	CONCUSSIVE_SLAM,
-	SIEGE_DRIVE
+	SIEGE_DRIVE,
+	OVERWATCH_MATRIX,
+	DISRUPTOR_ROUND,
+	VECTOR_STRAFE
 }
 
 @export var id: String = ""
@@ -81,3 +84,8 @@ enum EffectType {
 @export var damage_multiplier: float = 1.0
 @export var stagger_duration: float = 0.0
 @export var can_interrupt: bool = false
+
+# Shooter Role Lab 0.1 configuration fields
+@export var temporary_fire_rate_pct: float = 0.0
+@export var temporary_projectile_speed_pct: float = 0.0
+@export var temporary_movement_speed_pct: float = 0.0

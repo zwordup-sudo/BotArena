@@ -43,3 +43,7 @@ enum AttackType {
 @export var windup_time: float = 0.0
 @export var stagger_duration: float = 0.0
 @export var can_interrupt: bool = false
+
+# Shooter Role Lab 0.1 optimal range fields
+@export var optimal_range_threshold: float = 0.0
+@export var long_range_damage_multiplier: float = 1.0

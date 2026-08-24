@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "shooter_disruptor_round"
+display_name = "Disruptor Round"
+description = "Fire a high-speed projectile that deals 60% damage and staggers/interrupts the target."
+energy_cost = 35.0
+cooldown = 7.0
+duration = 0.0
+effect_type = 16
+damage_multiplier = 0.60
+projectile_speed_multiplier = 1.60
+stagger_duration = 0.65
+can_interrupt = true

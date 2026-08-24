@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "shooter_overwatch_matrix"
+display_name = "Overwatch Matrix"
+description = "Overclock weapon systems at the expense of mobility. Increases fire rate by 15% and projectile speed by 25%, but reduces movement speed by 20%."
+energy_cost = 40.0
+cooldown = 8.0
+duration = 3.0
+effect_type = 15
+temporary_fire_rate_pct = 0.15
+temporary_projectile_speed_pct = 0.25
+temporary_movement_speed_pct = -0.20

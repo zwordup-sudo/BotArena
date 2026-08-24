@@ -7,6 +7,10 @@ extends Area3D
 @export var interception_durability: int = 1
 
 var direction: Vector3 = Vector3.FORWARD
+var source_actor: Node = null
+
+# Safety pattern for anti-double-hit (consumed state)
+var is_consumed: bool = false
 
 func _ready() -> void:
 	add_to_group("hostile_projectile")
@@ -23,28 +27,37 @@ func _physics_process(delta: float) -> void:
 	global_position += direction * speed * delta
 
 func _on_body_entered(body: Node3D) -> void:
+	if is_consumed:
+		return
+	if body == source_actor:
+		return
+		
 	if body.get("is_evading_projectiles") == true:
 		return
 		
 	# Check for Ghost Buffer guard charges
 	if body.get("ghost_buffer_charges") != null and body.ghost_buffer_charges > 0:
 		if body.has_method("deduct_ghost_buffer_charge"):
+			is_consumed = true
 			body.deduct_ghost_buffer_charge()
-			if not is_queued_for_deletion():
-				queue_free()
+			queue_free()
 			return
 			
+	is_consumed = true
 	if body.has_method("take_damage"):
 		body.take_damage(damage, self)
-		if not is_queued_for_deletion():
-			queue_free()
+	queue_free()
 
 func _on_area_entered(area: Area3D) -> void:
+	if is_consumed:
+		return
 	if area.get("can_be_intercepted") == true:
-		if not is_queued_for_deletion() and not area.is_queued_for_deletion():
+		if not area.is_queued_for_deletion():
 			take_interception_hit()
 
 func take_interception_hit() -> void:
 	interception_durability -= 1
-	if interception_durability <= 0 and not is_queued_for_deletion():
-		queue_free()
+	if interception_durability <= 0:
+		is_consumed = true
+		if not is_queued_for_deletion():
+			queue_free()

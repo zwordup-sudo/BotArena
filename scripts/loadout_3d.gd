@@ -6,6 +6,7 @@ const LIGHT_CORE = preload("res://resources/parts/core/light_core.tres")
 const HEAVY_CORE = preload("res://resources/parts/core/heavy_core.tres")
 const ASSASSIN_TEST_CORE = preload("res://resources/parts/core/assassin_test_core.tres")
 const TANK_TEST_CORE = preload("res://resources/parts/core/tank_test_core.tres")
+const SHOOTER_TEST_CORE = preload("res://resources/parts/core/shooter_test_core.tres")
 
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
@@ -13,16 +14,18 @@ const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
 const MELEE_TEST_ARMS = preload("res://resources/parts/arms/melee_test_arms.tres")
 const ASSASSIN_TEST_ARMS = preload("res://resources/parts/arms/assassin_test_arms.tres")
 const TANK_TEST_ARMS = preload("res://resources/parts/arms/tank_test_arms.tres")
+const SHOOTER_TEST_ARMS = preload("res://resources/parts/arms/shooter_test_arms.tres")
 
 const STANDARD_LEGS = preload("res://resources/parts/legs/standard_legs.tres")
 const LIGHT_LEGS = preload("res://resources/parts/legs/light_legs.tres")
 const HEAVY_LEGS = preload("res://resources/parts/legs/heavy_legs.tres")
 const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_legs.tres")
 const TANK_TEST_LEGS = preload("res://resources/parts/legs/tank_test_legs.tres")
+const SHOOTER_TEST_LEGS = preload("res://resources/parts/legs/shooter_test_legs.tres")
 
-@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS]
-@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS]
+@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS]
+@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
 @onready var core_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreDesc
@@ -156,8 +159,14 @@ func update_build_and_preview() -> void:
 			type_name = "Thrust Impact"
 		primary_atk_txt = "PRIMARY ATTACK: " + type_name
 		
+		# For Projectile optimal range details
+		if atk_type == 0:
+			if atk.get("optimal_range_threshold") != null and atk.optimal_range_threshold > 0.0:
+				primary_atk_txt += "\nOptimal Range: " + str(atk.optimal_range_threshold) + \
+					" | Long Range Damage: " + str(int(atk.long_range_damage_multiplier * 100.0)) + "%"
+		
 		# For Melee Arc, display extra details
-		if atk_type == 1:
+		elif atk_type == 1:
 			primary_atk_txt += "\nRange: " + str(atk.melee_range) + " | Arc: " + str(atk.melee_arc_degrees) + " degrees"
 			if atk.get("engage_range") != null and atk.engage_range > 0.0:
 				primary_atk_txt += "\nEngage Range: " + str(atk.engage_range) + " | Engage Step: " + str(atk.engage_distance)
