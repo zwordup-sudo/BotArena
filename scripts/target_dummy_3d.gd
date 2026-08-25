@@ -15,3 +15,5 @@ func take_damage(amount: float, source: Node = null) -> void:
 
 func apply_stagger(duration: float, source: Node = null) -> void:
 	print("TargetDummy3D staggered for ", duration, " seconds by ", (source.name if source else "unknown"))
+	if source and source.has_method("notify_stagger"):
+		source.notify_stagger(self)

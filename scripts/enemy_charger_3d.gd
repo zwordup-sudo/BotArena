@@ -123,6 +123,11 @@ func apply_stagger(_duration: float, _source: Node = null) -> void:
 		print("Charger attack interrupted by Tank Impact!")
 		print("INTERRUPT")
 		transition_to(State.RECOVERY)
+		if _source and _source.has_method("notify_interrupt"):
+			_source.notify_interrupt(self)
+	else:
+		if _source and _source.has_method("notify_stagger"):
+			_source.notify_stagger(self)
 
 func die() -> void:
 	is_dead = true

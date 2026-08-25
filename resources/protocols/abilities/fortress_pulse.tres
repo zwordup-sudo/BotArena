@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ProtocolAbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/protocol_ability_data.gd" id="1_proto_ab"]
+
+[resource]
+script = ExtResource("1_proto_ab")
+id = "fortress_pulse"
+display_name = "FORTRESS PULSE"
+description = "Creates radial stagger pulse and reduces incoming projectile damage taken by 35% for 2.0s."
+duration = 2.0
+damage_multiplier = 0.6
+effect_radius = 3.0
+windup_time = 0.0

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ProtocolAbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/protocol_ability_data.gd" id="1_proto_ab"]
+
+[resource]
+script = ExtResource("1_proto_ab")
+id = "unstoppable_drive"
+display_name = "UNSTOPPABLE DRIVE"
+description = "Grants +10% speed, -20% damage taken, and +15% melee attack speed for 3.0s."
+duration = 3.0
+damage_multiplier = 1.0
+effect_radius = 0.0
+windup_time = 0.0

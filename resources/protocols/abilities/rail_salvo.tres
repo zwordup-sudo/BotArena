@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ProtocolAbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/protocol_ability_data.gd" id="1_proto_ab"]
+
+[resource]
+script = ExtResource("1_proto_ab")
+id = "rail_salvo"
+display_name = "RAIL SALVO"
+description = "Fires a high-velocity rail slug dealing 3.0x damage after 0.65s windup."
+duration = 0.0
+damage_multiplier = 3.0
+effect_radius = 0.0
+windup_time = 0.65

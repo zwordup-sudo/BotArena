@@ -68,6 +68,17 @@ var max_energy: float = 100.0
 var energy_regen_per_second: float = 5.0
 var current_energy: float = 100.0
 
+# Sync System (Protocol Special resource)
+var current_sync: float = 0.0
+const MAX_SYNC: float = 100.0
+var is_special_active: bool = false
+var special_duration_timer: float = 0.0
+var current_special_ability_data: Resource = null
+var execution_protocol_extensions_remaining: int = 0
+var is_salvo_winding_up: bool = false
+var salvo_windup_timer: float = 0.0
+var salvo_ability_data: Resource = null
+
 # Core Active Ability temporary stats modifiers
 var core_temp_speed_mod: float = 0.0
 var core_temp_dash_speed_mod: float = 0.0
@@ -168,6 +179,13 @@ var current_combo_index: int = 0
 var last_attack_time: float = -999.0
 
 func _ready() -> void:
+	# Dynamically map protocol_special input to key F if not already registered
+	if not InputMap.has_action("protocol_special"):
+		InputMap.add_action("protocol_special")
+		var event = InputEventKey.new()
+		event.physical_keycode = KEY_F
+		InputMap.action_add_event("protocol_special", event)
+
 	# Load existing selection from autoload GameSession if available
 	var saved_build = null
 	if has_node("/root/GameSession"):
@@ -199,7 +217,10 @@ func recalculate_stats() -> void:
 		max_health = calc.max_health
 		
 		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp + Overwatch Matrix
-		speed = calc.movement_speed * (1.0 + core_temp_speed_mod + overwatch_movement_speed_modifier)
+		var speed_mod = core_temp_speed_mod + overwatch_movement_speed_modifier
+		if is_special_active and current_special_ability_data and current_special_ability_data.id == "unstoppable_drive":
+			speed_mod += 0.10
+		speed = calc.movement_speed * (1.0 + speed_mod)
 		
 		# Calculate temporary fire rate flat bonuses (Twin Stream) and primary attack modifiers (Melee swing rate scaling)
 		var rate_mult = 1.0
@@ -207,6 +228,9 @@ func recalculate_stats() -> void:
 			var atk = bot_build.arms.primary_attack as PrimaryAttackData
 			if atk and atk.attack_rate_multiplier != 0.0:
 				rate_mult = atk.attack_rate_multiplier
+				
+		if is_special_active and current_special_ability_data and current_special_ability_data.id == "unstoppable_drive":
+			rate_mult *= 1.15
 				
 		var twin_fire_bonus = 0.0
 		if is_arms_active and bot_build and bot_build.arms and bot_build.arms.active_ability:
@@ -293,6 +317,14 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	clear_vector_anchor()
 	
 	current_energy = max_energy
+	current_sync = 0.0
+	is_special_active = false
+	special_duration_timer = 0.0
+	current_special_ability_data = null
+	execution_protocol_extensions_remaining = 0
+	is_salvo_winding_up = false
+	salvo_windup_timer = 0.0
+	salvo_ability_data = null
 	
 	recalculate_stats()
 	current_health = max_health
@@ -469,7 +501,10 @@ func _physics_process(delta: float) -> void:
 	var direction := Vector3(input_dir.x, 0.0, input_dir.y)
 	if direction.length_squared() > 0.0:
 		direction = direction.normalized()
-		velocity = direction * speed
+		var current_speed = speed
+		if is_salvo_winding_up:
+			current_speed *= 0.60 # Reduced by 40%
+		velocity = direction * current_speed
 	else:
 		velocity = Vector3.ZERO
 		
@@ -563,8 +598,24 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("legs_ability"):
 		activate_legs_ability()
 		
+	# Trigger protocol special (F)
+	if Input.is_action_just_pressed("protocol_special"):
+		activate_protocol_special()
+		
+	# Protocol Special duration tracking
+	if is_special_active:
+		special_duration_timer -= delta
+		if special_duration_timer <= 0.0:
+			end_protocol_special()
+			
+	# Rail Salvo windup tracking
+	if is_salvo_winding_up:
+		salvo_windup_timer -= delta
+		if salvo_windup_timer <= 0.0:
+			execute_rail_salvo()
+		
 	# Primary Attack - Disabled during Burst Volley, Charged Shot Charging, Rocket Lunge, and Windup
-	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging and not is_winding_up
+	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging and not is_winding_up and not is_salvo_winding_up
 	if fire_allowed and bot_build and bot_build.arms and bot_build.arms.primary_attack:
 		var atk = bot_build.arms.primary_attack as PrimaryAttackData
 		if atk:
@@ -727,6 +778,71 @@ func notify_kill(target: Node) -> void:
 		execution_refresh_triggered_this_activation = true
 		execution_refresh_window_timer = 0.0
 		print("Execution Refresh Window: Target ", target.name, " defeated. Core cooldown immediately refreshed!")
+	
+	# Protocol Sync hook:
+	trigger_sync_event("kill")
+	
+	# Assassin special extension hook:
+	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
+		if execution_protocol_extensions_remaining > 0:
+			execution_protocol_extensions_remaining -= 1
+			special_duration_timer += 1.0
+			print("Execution Protocol extended by 1.0s!")
+
+func notify_stagger(target: Node) -> void:
+	trigger_sync_event("stagger")
+
+func notify_interrupt(target: Node) -> void:
+	trigger_sync_event("interrupt")
+
+func generate_sync(amount: float) -> void:
+	if not bot_build or not bot_build.protocol_module:
+		return
+	current_sync = clamp(current_sync + amount, 0.0, MAX_SYNC)
+
+func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
+	if not bot_build or not bot_build.protocol_module:
+		return
+	
+	var proto_id = bot_build.protocol_module.id
+	var gain = 0.0
+	
+	if proto_id == "tank_protocol_test":
+		if event_type == "damage_mitigated":
+			gain = value * 0.30
+		elif event_type == "stagger":
+			gain = 5.0
+		elif event_type == "interrupt":
+			gain = 10.0
+			
+	elif proto_id == "assassin_protocol_test":
+		if event_type == "melee_damage":
+			gain = value * 0.20
+		elif event_type == "engage_hit":
+			gain = 5.0
+		elif event_type == "kill":
+			gain = 15.0
+			
+	elif proto_id == "shooter_protocol_test":
+		if event_type == "optimal_range_hit":
+			gain = 6.0
+		elif event_type == "projectile_interception":
+			gain = 4.0
+		elif event_type == "interrupt" or event_type == "disruptor_interrupt":
+			gain = 8.0
+			
+	elif proto_id == "fighter_protocol_test":
+		if event_type == "melee_damage":
+			gain = value * 0.12
+		elif event_type == "damage_mitigated":
+			gain = value * 0.15
+		elif event_type == "stagger" or event_type == "interrupt" or event_type == "disruptor_interrupt":
+			gain = 3.0
+		elif event_type == "kill":
+			gain = 8.0
+			
+	if gain > 0.0:
+		generate_sync(gain)
 
 func end_core_ability() -> void:
 	is_core_active = false
@@ -907,11 +1023,15 @@ func execute_execution_rush(ability: AbilityData) -> void:
 	if current_energy < ability.energy_cost or arms_cooldown_timer > 0.0:
 		return
 		
+	var target_rng = ability.target_range
+	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
+		target_rng *= 1.15
+		
 	# Search for valid candidate targets inside cone and target_range
 	var space_state = get_world_3d().direct_space_state
 	var eq = PhysicsShapeQueryParameters3D.new()
 	var esph = SphereShape3D.new()
-	esph.radius = ability.target_range
+	esph.radius = target_rng
 	eq.shape = esph
 	eq.transform = global_transform
 	eq.exclude = [get_rid()]
@@ -932,7 +1052,7 @@ func execute_execution_rush(ability: AbilityData) -> void:
 			var diff = body.global_position - global_position
 			diff.y = 0.0
 			var d = diff.length()
-			if d <= ability.target_range:
+			if d <= target_rng:
 				var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
 				if angle <= ability.target_cone_degrees / 2.0:
 					if angle < best_angle:
@@ -965,7 +1085,11 @@ func execute_execution_rush(ability: AbilityData) -> void:
 		base_melee_dmg = projectile_damage * arms_atk.damage_multiplier
 		
 	var strike_dmg = base_melee_dmg * ability.strike_damage_multiplier
+	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
+		strike_dmg *= 1.25
 	best_target.take_damage(strike_dmg, self)
+	trigger_sync_event("engage_hit")
+	trigger_sync_event("melee_damage", strike_dmg)
 	
 	# Execute strike visual feedback
 	var visual_range = 2.25
@@ -1450,6 +1574,29 @@ func update_canvas_hud() -> void:
 				else:
 					legs_status = ab_name + " - READY"
 		
+		# Format Protocol status
+		var proto_name = "NONE"
+		var special_status = ""
+		if bot_build and bot_build.protocol_module:
+			var pm = bot_build.protocol_module
+			proto_name = pm.display_name
+			if pm.special_ability:
+				var spec = pm.special_ability
+				var spec_name = spec.display_name.to_upper()
+				
+				if is_salvo_winding_up:
+					special_status = spec_name + " - WINDING UP " + str(snapped(salvo_windup_timer, 0.1)) + "s"
+				elif is_special_active:
+					special_status = spec_name + " - ACTIVE " + str(snapped(special_duration_timer, 0.1)) + "s"
+				elif current_sync >= 100.0:
+					special_status = spec_name + " READY"
+				else:
+					special_status = spec_name + " [" + str(int(current_sync)) + "%]"
+			else:
+				special_status = "NO SPECIAL"
+		else:
+			special_status = "NONE"
+		
 		label.text = (
 			"BUILD: " + current_build_name + "\n" +
 			"CORE: " + core_name + "\n" +
@@ -1464,7 +1611,10 @@ func update_canvas_hud() -> void:
 			"ENERGY: " + str(int(current_energy)) + " / 100\n" +
 			"Q: " + core_status + "\n" +
 			"E: " + arms_status + "\n" +
-			"R: " + legs_status
+			"R: " + legs_status + "\n\n" +
+			"SYNC: " + str(int(current_sync)) + " / 100\n" +
+			"PROTOCOL: " + proto_name + "\n" +
+			"F: " + special_status
 		)
 
 func start_dash() -> void:
@@ -1631,6 +1781,8 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	
 	var results = space_state.intersect_shape(query)
 	var final_dmg = projectile_damage * dmg_mult
+	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
+		final_dmg *= 1.25
 	
 	# Process combo indexing
 	var now = Time.get_ticks_msec() / 1000.0
@@ -1691,6 +1843,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 			
 			if inside_range and inside_arc:
 				collider.take_damage(final_dmg, self)
+				trigger_sync_event("melee_damage", final_dmg)
 				print("  Damage applied: ", final_dmg)
 			else:
 				print("  Damage applied: 0")
@@ -1747,6 +1900,7 @@ func execute_thrust_impact_hit(attack_data: PrimaryAttackData, aim_dir: Vector3)
 			
 			if inside_box:
 				collider.take_damage(final_dmg, self)
+				trigger_sync_event("melee_damage", final_dmg)
 				print("Hit Target: ", collider.name, " inside impact box. Damage applied: ", final_dmg)
 				
 				if collider.has_method("apply_stagger"):
@@ -1853,6 +2007,10 @@ func take_damage(amount: float, source: Node = null) -> void:
 				update_mesh_color()
 				
 	var final_applied = final_dmg * incoming_damage_multiplier
+	var prevented = amount - final_applied
+	if prevented > 0.0:
+		trigger_sync_event("damage_mitigated", prevented)
+		
 	current_health = clamp(current_health - final_applied, 0.0, max_health)
 	print("Player3D remaining health: ", int(current_health))
 	if current_health <= 0.0:
@@ -1879,3 +2037,114 @@ func aim_to_mouse() -> void:
 			var look_target := Vector3(intersection_point.x, aim_pivot.global_position.y, intersection_point.z)
 			if look_target.distance_to(aim_pivot.global_position) > 0.01:
 				aim_pivot.look_at(look_target, Vector3.UP)
+
+func activate_protocol_special() -> void:
+	if not bot_build or not bot_build.protocol_module or not bot_build.protocol_module.special_ability:
+		return
+	if current_sync < 100.0 or is_special_active or is_salvo_winding_up:
+		return
+		
+	var pm = bot_build.protocol_module
+	var ab = pm.special_ability
+	
+	# Consume Sync immediately
+	current_sync = 0.0
+	
+	# Execute based on protocol ability id
+	match ab.id:
+		"fortress_pulse":
+			is_special_active = true
+			special_duration_timer = ab.duration
+			current_special_ability_data = ab
+			incoming_damage_multiplier = 0.65 # Reduces incoming damage by 35%
+			
+			# Radial stagger pulse (radius = 3.0)
+			var base_melee_dmg = projectile_damage
+			if bot_build and bot_build.arms and bot_build.arms.primary_attack:
+				base_melee_dmg = projectile_damage * bot_build.arms.primary_attack.damage_multiplier
+			var slam_dmg = base_melee_dmg * ab.damage_multiplier
+			create_slam_visual(ab.effect_radius)
+			
+			# Query physics
+			var space_state = get_world_3d().direct_space_state
+			var query = PhysicsShapeQueryParameters3D.new()
+			var sphere = SphereShape3D.new()
+			sphere.radius = ab.effect_radius
+			query.shape = sphere
+			query.transform = global_transform
+			query.exclude = [get_rid()]
+			query.collide_with_areas = true
+			query.collide_with_bodies = true
+			
+			var results = space_state.intersect_shape(query)
+			for res in results:
+				var collider = res.collider
+				if is_instance_valid(collider) and collider.has_method("take_damage"):
+					collider.take_damage(slam_dmg, self)
+					if collider.has_method("apply_stagger"):
+						collider.apply_stagger(1.0, self)
+			
+		"execution_protocol":
+			is_special_active = true
+			special_duration_timer = ab.duration
+			current_special_ability_data = ab
+			execution_protocol_extensions_remaining = 1 # Max 1 extension
+			
+		"rail_salvo":
+			is_salvo_winding_up = true
+			salvo_windup_timer = ab.windup_time
+			salvo_ability_data = ab
+			
+		"unstoppable_drive":
+			is_special_active = true
+			special_duration_timer = ab.duration
+			current_special_ability_data = ab
+			incoming_damage_multiplier = 0.80 # reduces damage by 20%
+			
+			recalculate_stats()
+			
+	update_mesh_color()
+
+func end_protocol_special() -> void:
+	is_special_active = false
+	current_special_ability_data = null
+	incoming_damage_multiplier = 1.0
+	execution_protocol_extensions_remaining = 0
+	
+	recalculate_stats()
+	update_mesh_color()
+
+func execute_rail_salvo() -> void:
+	is_salvo_winding_up = false
+	if not salvo_ability_data:
+		return
+		
+	var ab = salvo_ability_data
+	salvo_ability_data = null
+	
+	var proj = PROJECTILE_SCENE.instantiate()
+	proj.source_actor = self
+	proj.damage = projectile_damage * ab.damage_multiplier # 3.0x damage
+	proj.speed = projectile_speed * 2.0 # 2.0x speed
+	proj.can_be_intercepted = true
+	proj.interception_durability = 2
+	proj.interception_power = 2.0
+	
+	# Visual Override for Rail Salvo: bright white/cyan core and elongated mesh
+	proj.custom_color = Color(0.3, 0.9, 1.0, 1.0)
+	
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+	if projectiles_node:
+		projectiles_node.add_child(proj)
+		
+	proj.global_position = muzzle.global_position
+	proj.direction = aim_dir
+	
+	# Visual ring/line trail at muzzle
+	create_slam_visual(1.5)
+	
+	update_mesh_color()

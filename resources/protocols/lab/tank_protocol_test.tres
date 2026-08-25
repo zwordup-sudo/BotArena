@@ -1,12 +1,13 @@
-[gd_resource type="Resource" script_class="ProtocolModuleData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ProtocolModuleData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/protocol_module_data.gd" id="1_proto"]
+[ext_resource type="Resource" path="res://resources/protocols/abilities/fortress_pulse.tres" id="1_ability"]
+[ext_resource type="Script" path="res://scripts/data/protocol_module_data.gd" id="2_proto"]
 
 [resource]
-script = ExtResource("1_proto")
+script = ExtResource("2_proto")
 id = "tank_protocol_test"
 display_name = "Tank Protocol Test"
-description = "Specialized defensive protocol. Provides Concave Shielding (prototype)."
+description = "Specialized defensive protocol. Provides FORTRESS PULSE (prototype)."
 min_tank_percentage = 75.0
 min_assassin_percentage = 0.0
 min_shooter_percentage = 0.0
@@ -14,3 +15,4 @@ min_role_coverage = 67.0
 power_cost = 0.0
 weight_cost = 0.0
 thermal_load = 0.0
+special_ability = ExtResource("1_ability")

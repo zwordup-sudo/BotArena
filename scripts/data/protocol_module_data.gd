@@ -15,3 +15,6 @@ extends Resource
 @export var power_cost: float = 0.0
 @export var weight_cost: float = 0.0
 @export var thermal_load: float = 0.0
+
+# Protocol Special Ability
+@export var special_ability: Resource

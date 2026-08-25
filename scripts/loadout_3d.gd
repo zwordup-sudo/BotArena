@@ -302,9 +302,10 @@ func update_build_and_preview() -> void:
 	var protocol_txt = "PROTOCOL MODULE: None"
 	if current_build.protocol_module:
 		var pm = current_build.protocol_module
+		var ab_name = pm.special_ability.display_name if pm.special_ability else "NONE"
 		protocol_txt = "PROTOCOL MODULE: " + pm.display_name + "\n" + \
 			"Eligibility: VALID\n" + \
-			"Special Ability: NOT IMPLEMENTED - Protocol System 0.1B\n" + \
+			"Special Ability: " + ab_name + " (Charge: SYNC)\n" + \
 			"Stat Modifiers: NONE - prototype\n" + \
 			pm.description
 		protocol_desc.text = pm.description

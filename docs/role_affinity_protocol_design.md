@@ -34,3 +34,18 @@ Players generate Sync during battle by executing role-consistent playstyles:
 * **Shooter Protocol Test**: Requires Shooter $\ge$ 75%, Role Coverage $\ge$ 67%.
 * **Fighter Protocol Test**: Requires Tank $\ge$ 50%, Assassin $\ge$ 25%, Role Coverage $\ge$ 67%.
 * **Generic / Balanced Builds**: No Protocol eligibility is unlocked when coverage or role thresholds are not met. Equipping incompatible parts instantly invalidates and auto-unequips ineligible Protocols (setting `protocol_module = null`).
+
+## 7. Protocol System 0.1B Specials & Sync Rules
+* **Activation**: Keybind `F` (action `protocol_special`) fires the active Special when Sync $\ge$ 100.
+* **Sync Rules**:
+  * **Tank**: mitigated damage prevented $\times 0.30$, stagger $+5$, interrupt $+10$.
+  * **Assassin**: melee damage dealt $\times 0.20$, engage hits $+5$, kills $+15$.
+  * **Shooter**: optimal range hit $\ge 6.0$ units $+6$, long-range projectile interception $+4$, interrupt $+8$.
+  * **Fighter**: melee damage dealt $\times 0.12$, mitigated damage prevented $\times 0.15$, stagger/interrupt $+3$, kills $+8$.
+* **Four Active Special Abilities**:
+  1. **FORTRESS PULSE** (Tank): Staggers enemies in a 3.0m radius (dealing 0.6x damage) and reduces incoming projectile damage by 35% for 2.0s.
+  2. **EXECUTION PROTOCOL** (Assassin): Melee damage $+25\%$, Execution Rush range $+15\%$ for 3.0s. Defeating enemies extends active duration by 1.0s (once per activation).
+  3. **RAIL SALVO** (Shooter): Decreases movement by 40% during a 0.65s windup, then fires a fast, heavy rail slug (3.0x damage, 2.0x speed, 2 durability/power).
+  4. **UNSTOPPABLE DRIVE** (Fighter): Brawler trance providing $+10\%$ speed, $-20\%$ damage taken, and $+15\%$ melee attack speed for 3.0s.
+* **Energy Separation**: Protocol specials consume no energy. Q/E/R continue to consume energy, while F consumes Sync only.
+

@@ -146,6 +146,10 @@ func _on_area_entered(area: Area3D) -> void:
 		
 	if area.has_method("take_damage"):
 		is_consumed = true
+		var traveled = spawn_position.distance_to(global_position)
+		if source_actor and source_actor.has_method("trigger_sync_event"):
+			if optimal_range_threshold > 0.0 and traveled >= optimal_range_threshold:
+				source_actor.trigger_sync_event("optimal_range_hit")
 		area.take_damage(get_calculated_damage(), source_actor)
 		if area.has_method("apply_stagger") and stagger_duration > 0.0:
 			area.apply_stagger(stagger_duration, source_actor)
@@ -164,6 +168,11 @@ func _on_area_entered(area: Area3D) -> void:
 			if area.has_method("take_interception_damage"):
 				area.take_interception_damage(get_interception_power())
 				
+			var traveled = spawn_position.distance_to(global_position)
+			if source_actor and source_actor.has_method("trigger_sync_event"):
+				if traveled >= 6.0:
+					source_actor.trigger_sync_event("projectile_interception")
+					
 			take_interception_damage(other_power)
 
 func _on_body_entered(body: Node3D) -> void:
@@ -174,6 +183,10 @@ func _on_body_entered(body: Node3D) -> void:
 		
 	is_consumed = true
 	if body.has_method("take_damage"):
+		var traveled = spawn_position.distance_to(global_position)
+		if source_actor and source_actor.has_method("trigger_sync_event"):
+			if optimal_range_threshold > 0.0 and traveled >= optimal_range_threshold:
+				source_actor.trigger_sync_event("optimal_range_hit")
 		body.take_damage(get_calculated_damage(), source_actor)
 		if body.has_method("apply_stagger") and stagger_duration > 0.0:
 			body.apply_stagger(stagger_duration, source_actor)
