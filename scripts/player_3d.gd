@@ -78,6 +78,8 @@ var execution_protocol_extensions_remaining: int = 0
 var is_salvo_winding_up: bool = false
 var salvo_windup_timer: float = 0.0
 var salvo_ability_data: Resource = null
+var bastion_charges: int = 0
+var bastion_field_node: Area3D = null
 
 # Core Active Ability temporary stats modifiers
 var core_temp_speed_mod: float = 0.0
@@ -325,6 +327,11 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	is_salvo_winding_up = false
 	salvo_windup_timer = 0.0
 	salvo_ability_data = null
+	
+	if is_instance_valid(bastion_field_node):
+		bastion_field_node.queue_free()
+	bastion_field_node = null
+	bastion_charges = 0
 	
 	recalculate_stats()
 	current_health = max_health
@@ -811,11 +818,15 @@ func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
 	
 	if proto_id == "tank_protocol_test":
 		if event_type == "damage_mitigated":
-			gain = value * 0.60
+			gain = value * 1.00
+			if gain > 0.0:
+				print("MITIGATION +%.1f SYNC" % gain)
 		elif event_type == "stagger":
-			gain = 7.0
+			gain = 8.0
+			print("STAGGER +%.1f SYNC" % gain)
 		elif event_type == "interrupt":
-			gain = 15.0
+			gain = 18.0
+			print("INTERRUPT +%.1f SYNC" % gain)
 			
 	elif proto_id == "assassin_protocol_test":
 		if event_type == "melee_damage":
@@ -1586,7 +1597,9 @@ func update_canvas_hud() -> void:
 				var spec = pm.special_ability
 				var spec_name = spec.display_name.to_upper()
 				
-				if is_salvo_winding_up:
+				if pm.id == "tank_protocol_test" and is_special_active:
+					special_status = "BASTION " + str(bastion_charges) + "/6"
+				elif is_salvo_winding_up:
 					special_status = spec_name + " - WINDING UP " + str(snapped(salvo_windup_timer, 0.1)) + "s"
 				elif is_special_active:
 					special_status = spec_name + " - ACTIVE " + str(snapped(special_duration_timer, 0.1)) + "s"
@@ -2058,9 +2071,8 @@ func activate_protocol_special() -> void:
 			is_special_active = true
 			special_duration_timer = ab.duration
 			current_special_ability_data = ab
-			incoming_damage_multiplier = 0.65 # Reduces incoming damage by 35%
 			
-			# Radial stagger pulse (radius = 3.0)
+			# Radial stagger pulse (radius = 3.25)
 			var base_melee_dmg = projectile_damage
 			if bot_build and bot_build.arms and bot_build.arms.primary_attack:
 				base_melee_dmg = projectile_damage * bot_build.arms.primary_attack.damage_multiplier
@@ -2085,6 +2097,9 @@ func activate_protocol_special() -> void:
 					collider.take_damage(slam_dmg, self)
 					if collider.has_method("apply_stagger"):
 						collider.apply_stagger(1.0, self)
+						
+			# Spawn Bastion Field Area & Visuals
+			start_bastion_field()
 			
 		"execution_protocol":
 			is_special_active = true
@@ -2113,6 +2128,11 @@ func end_protocol_special() -> void:
 	current_special_ability_data = null
 	incoming_damage_multiplier = 1.0
 	execution_protocol_extensions_remaining = 0
+	
+	if is_instance_valid(bastion_field_node):
+		bastion_field_node.queue_free()
+	bastion_field_node = null
+	bastion_charges = 0
 	
 	recalculate_stats()
 	update_mesh_color()
@@ -2173,3 +2193,90 @@ func spawn_muzzle_charge_visual(dur: float) -> void:
 	var tween = mesh_instance.create_tween()
 	tween.tween_property(mesh_instance, "scale", Vector3.ZERO, dur)
 	tween.tween_callback(mesh_instance.queue_free)
+
+func start_bastion_field() -> void:
+	if is_instance_valid(bastion_field_node):
+		bastion_field_node.queue_free()
+	bastion_field_node = null
+	
+	bastion_charges = 6
+	
+	# Create Area3D
+	var area = Area3D.new()
+	area.name = "BastionField"
+	area.collision_layer = 16
+	area.collision_mask = 8 # monitor Layer 8 (hostile projectile)
+	area.monitoring = true
+	area.monitorable = false
+	
+	# Create CollisionShape3D
+	var col = CollisionShape3D.new()
+	var sphere_shape = SphereShape3D.new()
+	sphere_shape.radius = 3.25
+	col.shape = sphere_shape
+	area.add_child(col)
+	
+	# Create Visual MeshInstance3D
+	var mesh_inst = MeshInstance3D.new()
+	var sphere_mesh = SphereMesh.new()
+	sphere_mesh.radius = 3.25
+	sphere_mesh.height = 6.5
+	mesh_inst.mesh = sphere_mesh
+	
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.0, 0.5, 1.0, 0.15)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh_inst.material_override = mat
+	area.add_child(mesh_inst)
+	
+	# Add to player
+	add_child(area)
+	bastion_field_node = area
+	
+	# Connect signal
+	area.area_entered.connect(_on_bastion_area_entered)
+
+func _on_bastion_area_entered(other_area: Area3D) -> void:
+	if not is_special_active or bastion_charges <= 0:
+		return
+	if other_area.is_in_group("hostile_projectile") and other_area.get("can_be_intercepted") == true:
+		if other_area.get("is_consumed") == true:
+			return
+			
+		# Set consumed state immediately to prevent duplicate collision triggers
+		other_area.set("is_consumed", true)
+		
+		# Intercept!
+		bastion_charges -= 1
+		print("Bastion intercepted projectile! Charges remaining: ", bastion_charges)
+		
+		# Spawn small cyan impact flash
+		var flash = MeshInstance3D.new()
+		var sphere = SphereMesh.new()
+		sphere.radius = 0.3
+		sphere.height = 0.6
+		flash.mesh = sphere
+		var flash_mat = StandardMaterial3D.new()
+		flash_mat.albedo_color = Color(0.3, 0.8, 1.0, 0.8)
+		flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		flash.material_override = flash_mat
+		
+		var level = get_parent()
+		if level:
+			level.add_child(flash)
+			flash.global_position = other_area.global_position
+			var tween = flash.create_tween()
+			tween.tween_property(flash_mat, "albedo_color:a", 0.0, 0.15)
+			tween.tween_callback(flash.queue_free)
+			
+		# Consume the projectile cleanly
+		if other_area.has_method("take_interception_damage"):
+			other_area.take_interception_damage(other_area.get("interception_durability") if other_area.get("interception_durability") != null else 1.0)
+		else:
+			other_area.queue_free()
+			
+		if bastion_charges <= 0:
+			end_protocol_special()

@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1_proto_ab")
 id = "fortress_pulse"
-display_name = "FORTRESS PULSE"
-description = "Creates radial stagger pulse and reduces incoming projectile damage taken by 35% for 2.0s."
-duration = 2.0
+display_name = "BASTION PROTOCOL"
+description = "Triggers a 3.25m radial stagger pulse and activates a Bastion Field intercepting up to 6 hostile projectiles for 3.0s."
+duration = 3.0
 damage_multiplier = 0.6
-effect_radius = 3.0
+effect_radius = 3.25
 windup_time = 0.0
