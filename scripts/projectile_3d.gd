@@ -54,13 +54,21 @@ func _apply_custom_visuals() -> void:
 				break
 		if mesh_inst:
 			var mat = StandardMaterial3D.new()
-			mat.albedo_color = custom_color
-			mat.emission_enabled = true
-			mat.emission = custom_color
-			mat.emission_energy_multiplier = 1.8
-			mesh_inst.material_override = mat
-			# Elongate visual along Z axis (length 1.65x, width 1.15x) without changing collider
-			mesh_inst.scale = Vector3(1.15, 1.15, 1.65 * 1.15)
+			var is_rail = (interception_power > 1.0)
+			if is_rail:
+				mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0) # White core
+				mat.emission_enabled = true
+				mat.emission = Color(0.0, 0.8, 1.0, 1.0) # Cyan emission
+				mat.emission_energy_multiplier = 4.0 # Strong emission
+				mesh_inst.material_override = mat
+				mesh_inst.scale = Vector3(1.5, 1.5, 2.5) # Elongated rail bolt
+			else:
+				mat.albedo_color = custom_color
+				mat.emission_enabled = true
+				mat.emission = custom_color
+				mat.emission_energy_multiplier = 1.8
+				mesh_inst.material_override = mat
+				mesh_inst.scale = Vector3(1.15, 1.15, 1.65 * 1.15)
 
 func _physics_process(delta: float) -> void:
 	# Move exclusively on X/Z plane

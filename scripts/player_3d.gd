@@ -798,6 +798,8 @@ func notify_interrupt(target: Node) -> void:
 func generate_sync(amount: float) -> void:
 	if not bot_build or not bot_build.protocol_module:
 		return
+	if is_special_active or is_salvo_winding_up:
+		return
 	current_sync = clamp(current_sync + amount, 0.0, MAX_SYNC)
 
 func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
@@ -809,11 +811,11 @@ func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
 	
 	if proto_id == "tank_protocol_test":
 		if event_type == "damage_mitigated":
-			gain = value * 0.30
+			gain = value * 0.60
 		elif event_type == "stagger":
-			gain = 5.0
+			gain = 7.0
 		elif event_type == "interrupt":
-			gain = 10.0
+			gain = 15.0
 			
 	elif proto_id == "assassin_protocol_test":
 		if event_type == "melee_damage":
@@ -1086,7 +1088,7 @@ func execute_execution_rush(ability: AbilityData) -> void:
 		
 	var strike_dmg = base_melee_dmg * ability.strike_damage_multiplier
 	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
-		strike_dmg *= 1.25
+		strike_dmg *= 1.10
 	best_target.take_damage(strike_dmg, self)
 	trigger_sync_event("engage_hit")
 	trigger_sync_event("melee_damage", strike_dmg)
@@ -1782,7 +1784,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	var results = space_state.intersect_shape(query)
 	var final_dmg = projectile_damage * dmg_mult
 	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
-		final_dmg *= 1.25
+		final_dmg *= 1.10
 	
 	# Process combo indexing
 	var now = Time.get_ticks_msec() / 1000.0
@@ -2094,6 +2096,7 @@ func activate_protocol_special() -> void:
 			is_salvo_winding_up = true
 			salvo_windup_timer = ab.windup_time
 			salvo_ability_data = ab
+			spawn_muzzle_charge_visual(ab.windup_time)
 			
 		"unstoppable_drive":
 			is_special_active = true
@@ -2148,3 +2151,25 @@ func execute_rail_salvo() -> void:
 	create_slam_visual(1.5)
 	
 	update_mesh_color()
+
+func spawn_muzzle_charge_visual(dur: float) -> void:
+	var mesh_instance = MeshInstance3D.new()
+	var sphere = SphereMesh.new()
+	sphere.radius = 0.5
+	sphere.height = 1.0
+	mesh_instance.mesh = sphere
+	
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
+	mat.emission_enabled = true
+	mat.emission = Color(0.0, 0.8, 1.0, 1.0)
+	mat.emission_energy_multiplier = 3.0
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mesh_instance.material_override = mat
+	
+	add_child(mesh_instance)
+	mesh_instance.global_position = muzzle.global_position
+	
+	var tween = mesh_instance.create_tween()
+	tween.tween_property(mesh_instance, "scale", Vector3.ZERO, dur)
+	tween.tween_callback(mesh_instance.queue_free)
