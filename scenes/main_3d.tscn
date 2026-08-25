@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_shooter_3d.tscn" id="3_shooter3d"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_charger_3d.tscn" id="4_charger3d"]
 [ext_resource type="Resource" path="res://resources/builds/balanced_build.tres" id="5_botbuild"]
+[ext_resource type="Script" path="res://scripts/main_3d.gd" id="6_main3d"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
 albedo_color = Color(0.12, 0.12, 0.12, 1)
@@ -52,6 +53,7 @@ emission_energy_multiplier = 0.6
 size = Vector3(0.6, 0.25, 0.1)
 
 [node name="Main3D" type="Node3D"]
+script = ExtResource("6_main3d")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 10, 0)

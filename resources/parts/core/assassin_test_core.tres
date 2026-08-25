@@ -24,3 +24,6 @@ active_ability = ExtResource("1_ability")
 tank_affinity = 0.0
 assassin_affinity = 2.0
 shooter_affinity = 0.0
+armor = 2.0
+flat_armor_penetration = 0.0
+percent_armor_penetration = 0.0

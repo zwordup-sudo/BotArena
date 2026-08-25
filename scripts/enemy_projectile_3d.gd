@@ -6,6 +6,8 @@ extends Area3D
 @export var can_be_intercepted: bool = true
 @export var interception_durability: float = 1.0
 @export var interception_power: float = 1.0
+@export var flat_armor_penetration: float = 0.0
+@export var percent_armor_penetration: float = 0.0
 
 var direction: Vector3 = Vector3.FORWARD
 var source_actor: Node = null
@@ -18,6 +20,10 @@ func _ready() -> void:
 	direction = Vector3(direction.x, 0.0, direction.z).normalized()
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
+	
+	if source_actor:
+		flat_armor_penetration = source_actor.get("flat_armor_penetration") if source_actor.get("flat_armor_penetration") != null else 0.0
+		percent_armor_penetration = source_actor.get("percent_armor_penetration") if source_actor.get("percent_armor_penetration") != null else 0.0
 	
 	# Automatically destroy when lifetime expires
 	await get_tree().create_timer(lifetime).timeout

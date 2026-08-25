@@ -80,4 +80,22 @@ static func calculate(build: Resource) -> RefCounted: # Returns BotEffectiveStat
 		eff.system_stress = true
 		eff.dash_cooldown *= 1.15
 		
+	# 5. Calculate Armor and Penetration stats
+	var total_armor = 0.0
+	var total_flat_pen = 0.0
+	var total_pct_pen = 0.0
+	for part in parts:
+		if part:
+			total_armor += part.get("armor") if part.get("armor") != null else 0.0
+			total_flat_pen += part.get("flat_armor_penetration") if part.get("flat_armor_penetration") != null else 0.0
+			total_pct_pen += part.get("percent_armor_penetration") if part.get("percent_armor_penetration") != null else 0.0
+	eff.armor = total_armor
+	eff.flat_armor_penetration = total_flat_pen
+	eff.percent_armor_penetration = clamp(total_pct_pen, 0.0, 1.0)
+		
 	return eff
+
+static func calculate_armored_damage(raw_damage: float, target_armor: float, flat_pen: float, pct_pen: float) -> float:
+	var effective_armor = max(0.0, target_armor - flat_pen)
+	effective_armor = effective_armor * (1.0 - clamp(pct_pen, 0.0, 1.0))
+	return raw_damage * 100.0 / (100.0 + effective_armor)

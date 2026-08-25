@@ -26,3 +26,6 @@ primary_attack = ExtResource("2_attack")
 tank_affinity = 0.0
 assassin_affinity = 0.0
 shooter_affinity = 2.0
+armor = 0.0
+flat_armor_penetration = 2.0
+percent_armor_penetration = 0.0

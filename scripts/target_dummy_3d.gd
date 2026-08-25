@@ -6,7 +6,14 @@ extends Area3D
 func take_damage(amount: float, source: Node = null) -> void:
 	if current_health <= 0.0:
 		return
-	current_health = clamp(current_health - amount, 0.0, max_health)
+		
+	var flat_pen = source.get("flat_armor_penetration") if (source and source.get("flat_armor_penetration") != null) else 0.0
+	var pct_pen = source.get("percent_armor_penetration") if (source and source.get("percent_armor_penetration") != null) else 0.0
+	var target_armor = self.get("armor") if self.get("armor") != null else 0.0
+	
+	var final_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, target_armor, flat_pen, pct_pen)
+	
+	current_health = clamp(current_health - final_dmg, 0.0, max_health)
 	print("TargetDummy3D remaining health: ", int(current_health))
 	if current_health <= 0.0:
 		if source and source.has_method("notify_kill"):

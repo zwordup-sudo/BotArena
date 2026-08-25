@@ -23,3 +23,6 @@ weight_cost = 40.0
 thermal_load = 40.0
 active_ability = ExtResource("1_ability")
 primary_attack = ExtResource("2_attack")
+armor = 5.0
+flat_armor_penetration = 0.0
+percent_armor_penetration = 0.0

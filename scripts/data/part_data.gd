@@ -33,3 +33,8 @@ enum Slot { CORE, ARMS, LEGS }
 @export var tank_affinity: float = 0.0
 @export var assassin_affinity: float = 0.0
 @export var shooter_affinity: float = 0.0
+
+# Armor System 0.1A
+@export var armor: float = 0.0
+@export var flat_armor_penetration: float = 0.0
+@export var percent_armor_penetration: float = 0.0

@@ -13,6 +13,11 @@ var dash_speed: float = 18.0
 var dash_duration: float = 0.14
 var dash_cooldown: float = 0.80
 
+# Armor System 0.1A
+var armor: float = 0.0
+var flat_armor_penetration: float = 0.0
+var percent_armor_penetration: float = 0.0
+
 @onready var current_health: float = max_health
 @onready var aim_pivot: Node3D = $AimPivot
 @onready var muzzle: Node3D = $AimPivot/Muzzle
@@ -245,6 +250,11 @@ func recalculate_stats() -> void:
 		dash_speed = calc.dash_speed * (1.0 + core_temp_dash_speed_mod)
 		dash_duration = calc.dash_duration
 		dash_cooldown = calc.dash_cooldown
+		
+		# Armor System 0.1A
+		armor = calc.armor
+		flat_armor_penetration = calc.flat_armor_penetration
+		percent_armor_penetration = calc.percent_armor_penetration
 
 func apply_build(new_build: Resource, build_name: String) -> void:
 	bot_build = new_build
@@ -2008,7 +2018,11 @@ func create_melee_visual_custom(range_val: float, arc_deg: float, color: Color, 
 	tween.tween_callback(mesh_instance.queue_free)
 
 func take_damage(amount: float, source: Node = null) -> void:
-	var final_dmg = amount
+	var flat_pen = source.get("flat_armor_penetration") if (source and source.get("flat_armor_penetration") != null) else 0.0
+	var pct_pen = source.get("percent_armor_penetration") if (source and source.get("percent_armor_penetration") != null) else 0.0
+	
+	var post_armor_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, armor, flat_pen, pct_pen)
+	var final_dmg = post_armor_dmg
 	
 	# Apply Reactive Plating projectile mitigation (Tank Core)
 	if source and source.is_in_group("hostile_projectile"):

@@ -1,0 +1,130 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat_lab_setup.gd" id="1_setup"]
+
+[node name="CombatLabSetup" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_setup")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -250.0
+offset_right = 200.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 15
+
+[node name="Title" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "COMBAT LAB SETUP"
+horizontal_alignment = 1
+
+[node name="PresetContainer" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/PresetContainer"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+text = "PRESET:"
+
+[node name="PresetSelector" type="OptionButton" parent="Panel/VBox/PresetContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SizeContainer" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/SizeContainer"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+text = "ARENA SIZE:"
+
+[node name="SizeSelector" type="OptionButton" parent="Panel/VBox/SizeContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DummyContainer" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/DummyContainer"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+text = "TARGET DUMMIES:"
+
+[node name="DummySpin" type="SpinBox" parent="Panel/VBox/DummyContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 8.0
+value = 1.0
+
+[node name="ShooterContainer" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/ShooterContainer"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+text = "ENEMY SHOOTERS:"
+
+[node name="ShooterSpin" type="SpinBox" parent="Panel/VBox/ShooterContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 12.0
+value = 3.0
+
+[node name="ChargerContainer" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/ChargerContainer"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+text = "ENEMY CHARGERS:"
+
+[node name="ChargerSpin" type="SpinBox" parent="Panel/VBox/ChargerContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 6.0
+value = 1.0
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "START TEST"
+
+[node name="ResetButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "RESET BASELINE"
+
+[node name="BackButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "BACK TO LOADOUT"

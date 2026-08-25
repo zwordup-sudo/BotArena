@@ -350,6 +350,7 @@ func update_build_and_preview() -> void:
 		"BUILD: " + build_name + stress_txt + "\n" +
 		"HP: " + str(int(calc.max_health)) + " | MOVE: " + str(snapped(calc.movement_speed, 0.1)) + " | FIRE: " + str(snapped(calc.fire_rate, 0.01)) + " | DMG: " + str(int(calc.projectile_damage)) + "\n" +
 		"PROJ SPD: " + str(snapped(calc.projectile_speed, 0.1)) + " | DASH SPD: " + str(snapped(calc.dash_speed, 0.1)) + " | DASH CD: " + str(snapped(calc.dash_cooldown, 0.01)) + "\n" +
+		"ARMOR: " + str(int(calc.armor)) + " | FLAT PEN: " + str(int(calc.flat_armor_penetration)) + " | ARMOR PEN %: " + str(int(calc.percent_armor_penetration * 100.0)) + "%\n" +
 		"THEORETICAL DPS: " + str(snapped(dps, 0.1)) + "\n" +
 		primary_atk_txt + "\n\n" +
 		"POWER: " + power_txt + " | WEIGHT: " + weight_txt + " | THERMAL: " + thermal_txt + "\n\n" +
@@ -364,4 +365,4 @@ func update_build_and_preview() -> void:
 
 func _on_enter_pressed() -> void:
 	GameSession.set_selected_build(current_build)
-	get_tree().change_scene_to_file("res://scenes/main_3d.tscn")
+	get_tree().change_scene_to_file("res://scenes/combat_lab_setup_3d.tscn")

@@ -17,3 +17,7 @@ var power_overloaded: bool = false
 var weight_overloaded: bool = false
 var thermal_overloaded: bool = false
 var system_stress: bool = false
+
+var armor: float = 0.0
+var flat_armor_penetration: float = 0.0
+var percent_armor_penetration: float = 0.0
