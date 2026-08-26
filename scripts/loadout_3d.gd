@@ -9,6 +9,9 @@ const TANK_TEST_CORE = preload("res://resources/parts/core/tank_test_core.tres")
 const SHOOTER_TEST_CORE = preload("res://resources/parts/core/shooter_test_core.tres")
 
 const STANDARD_CHASSIS = preload("res://resources/parts/chassis/standard_chassis.tres")
+const TANK_TEST_CHASSIS = preload("res://resources/parts/chassis/tank_test_chassis.tres")
+const ASSASSIN_TEST_CHASSIS = preload("res://resources/parts/chassis/assassin_test_chassis.tres")
+const SHOOTER_TEST_CHASSIS = preload("res://resources/parts/chassis/shooter_test_chassis.tres")
 
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
@@ -29,12 +32,15 @@ const TANK_PROTO = preload("res://resources/protocols/lab/tank_protocol_test.tre
 const ASSASSIN_PROTO = preload("res://resources/protocols/lab/assassin_protocol_test.tres")
 const SHOOTER_PROTO = preload("res://resources/protocols/lab/shooter_protocol_test.tres")
 const FIGHTER_PROTO = preload("res://resources/protocols/lab/fighter_protocol_test.tres")
+const UNIVERSAL_PROTO = preload("res://resources/protocols/lab/universal_protocol_test.tres")
+const BATTLE_TANK_PROTO = preload("res://resources/protocols/lab/battle_tank_protocol_test.tres")
+const SKIRMISHER_PROTO = preload("res://resources/protocols/lab/skirmisher_protocol_test.tres")
 
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE]
-@onready var chassis_list = [STANDARD_CHASSIS]
+@onready var chassis_list = [STANDARD_CHASSIS, TANK_TEST_CHASSIS, ASSASSIN_TEST_CHASSIS, SHOOTER_TEST_CHASSIS]
 @onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS]
-@onready var protocol_list = [null, TANK_PROTO, ASSASSIN_PROTO, SHOOTER_PROTO, FIGHTER_PROTO]
+@onready var protocol_list = [null, UNIVERSAL_PROTO, TANK_PROTO, ASSASSIN_PROTO, SHOOTER_PROTO, FIGHTER_PROTO, BATTLE_TANK_PROTO, SKIRMISHER_PROTO]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
 @onready var core_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreDesc
@@ -120,10 +126,12 @@ func get_part_description(part: Resource) -> String:
 	var desc = ""
 	if part.max_health_pct != 0.0:
 		desc += ("+" if part.max_health_pct > 0.0 else "") + str(int(part.max_health_pct * 100.0)) + "% HP, "
+	if part.get("armor") != null and part.armor != 0.0:
+		desc += ("+" if part.armor > 0.0 else "") + str(int(part.armor)) + " Armor, "
 	if part.movement_speed_pct != 0.0:
 		desc += ("+" if part.movement_speed_pct > 0.0 else "") + str(int(part.movement_speed_pct * 100.0)) + "% Movement, "
 	if part.fire_rate_pct != 0.0:
-		desc += ("+" if part.fire_rate_pct > 0.0 else "") + str(int(part.fire_rate_pct * 100.0)) + "% Fire Rate, "
+		desc += ("+" if part.fire_rate_pct > 0.0 else "") + str(int(part.fire_rate_pct * 100.0)) + "% Attack Rate, "
 	if part.projectile_damage_pct != 0.0:
 		desc += ("+" if part.projectile_damage_pct > 0.0 else "") + str(int(part.projectile_damage_pct * 100.0)) + "% Damage, "
 	if part.projectile_speed_pct != 0.0:

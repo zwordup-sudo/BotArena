@@ -225,8 +225,9 @@ func recalculate_stats() -> void:
 		
 		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp + Overwatch Matrix
 		var speed_mod = core_temp_speed_mod + overwatch_movement_speed_modifier
-		if is_special_active and current_special_ability_data and current_special_ability_data.id == "unstoppable_drive":
-			speed_mod += 0.10
+		if is_special_active and current_special_ability_data:
+			if current_special_ability_data.id == "unstoppable_drive" or current_special_ability_data.id == "skirmisher_momentum_shift":
+				speed_mod += 0.10
 		speed = calc.movement_speed * (1.0 + speed_mod)
 		
 		# Calculate temporary fire rate flat bonuses (Twin Stream) and primary attack modifiers (Melee swing rate scaling)
@@ -236,8 +237,11 @@ func recalculate_stats() -> void:
 			if atk and atk.attack_rate_multiplier != 0.0:
 				rate_mult = atk.attack_rate_multiplier
 				
-		if is_special_active and current_special_ability_data and current_special_ability_data.id == "unstoppable_drive":
-			rate_mult *= 1.15
+		if is_special_active and current_special_ability_data:
+			if current_special_ability_data.id == "unstoppable_drive":
+				rate_mult *= 1.15
+			elif current_special_ability_data.id == "battle_tank_siege_window" or current_special_ability_data.id == "skirmisher_momentum_shift":
+				rate_mult *= 1.10
 				
 		var twin_fire_bonus = 0.0
 		if is_arms_active and bot_build and bot_build.arms and bot_build.arms.active_ability:
@@ -245,7 +249,11 @@ func recalculate_stats() -> void:
 			
 		fire_rate = (calc.fire_rate * arms_temp_fire_rate_multiplier * rate_mult * (1.0 + overwatch_fire_rate_modifier)) + twin_fire_bonus
 		projectile_damage = calc.projectile_damage * arms_temp_projectile_damage_multiplier
-		projectile_speed = calc.projectile_speed * (1.0 + overwatch_projectile_speed_modifier)
+		
+		var proj_speed_mod = overwatch_projectile_speed_modifier
+		if is_special_active and current_special_ability_data and current_special_ability_data.id == "battle_tank_siege_window":
+			proj_speed_mod += 0.10
+		projectile_speed = calc.projectile_speed * (1.0 + proj_speed_mod)
 		
 		dash_speed = calc.dash_speed * (1.0 + core_temp_dash_speed_mod)
 		dash_duration = calc.dash_duration
@@ -823,48 +831,34 @@ func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
 	if not bot_build or not bot_build.protocol_module:
 		return
 	
-	var proto_id = bot_build.protocol_module.id
+	var proto = bot_build.protocol_module
 	var gain = 0.0
 	
-	if proto_id == "tank_protocol_test":
-		if event_type == "damage_mitigated":
-			gain = value * 1.00
-			if gain > 0.0:
-				print("MITIGATION +%.1f SYNC" % gain)
-		elif event_type == "stagger":
-			gain = 8.0
-			print("STAGGER +%.1f SYNC" % gain)
-		elif event_type == "interrupt":
-			gain = 18.0
-			print("INTERRUPT +%.1f SYNC" % gain)
-			
-	elif proto_id == "assassin_protocol_test":
-		if event_type == "melee_damage":
-			gain = value * 0.20
-		elif event_type == "engage_hit":
-			gain = 5.0
-		elif event_type == "kill":
-			gain = 15.0
-			
-	elif proto_id == "shooter_protocol_test":
-		if event_type == "optimal_range_hit":
-			gain = 6.0
-		elif event_type == "projectile_interception":
-			gain = 4.0
-		elif event_type == "interrupt" or event_type == "disruptor_interrupt":
-			gain = 8.0
-			
-	elif proto_id == "fighter_protocol_test":
-		if event_type == "melee_damage":
-			gain = value * 0.12
-		elif event_type == "damage_mitigated":
-			gain = value * 0.15
-		elif event_type == "stagger" or event_type == "interrupt" or event_type == "disruptor_interrupt":
-			gain = 3.0
-		elif event_type == "kill":
-			gain = 8.0
-			
+	match event_type:
+		"damage_mitigated":
+			gain = value * proto.sync_damage_mitigated_multiplier
+		"stagger":
+			gain = proto.sync_stagger
+		"interrupt":
+			gain = proto.sync_interrupt
+		"melee_damage":
+			gain = value * proto.sync_melee_damage_multiplier
+		"engage_hit":
+			gain = proto.sync_engage_hit
+		"kill":
+			gain = proto.sync_kill
+		"optimal_range_hit":
+			gain = proto.sync_optimal_range_hit
+		"projectile_interception":
+			gain = proto.sync_projectile_interception
+		"disruptor_interrupt":
+			gain = proto.sync_disruptor_interrupt
+		"effective_damage":
+			gain = value * proto.sync_effective_damage_multiplier
+
 	if gain > 0.0:
+		if event_type == "damage_mitigated" or event_type == "stagger" or event_type == "interrupt":
+			print(event_type.to_upper() + " +%.1f SYNC" % gain)
 		generate_sync(gain)
 
 func end_core_ability() -> void:
@@ -2133,6 +2127,31 @@ func activate_protocol_special() -> void:
 			current_special_ability_data = ab
 			incoming_damage_multiplier = 0.80 # reduces damage by 20%
 			
+			recalculate_stats()
+			
+		"universal_system_reboot":
+			current_energy = clamp(current_energy + 35.0, 0.0, max_energy)
+			if core_cooldown_timer > 0.0:
+				core_cooldown_timer = max(0.0, core_cooldown_timer - core_cooldown_timer * 0.3)
+			if arms_cooldown_timer > 0.0:
+				arms_cooldown_timer = max(0.0, arms_cooldown_timer - arms_cooldown_timer * 0.3)
+			if legs_cooldown_timer > 0.0:
+				legs_cooldown_timer = max(0.0, legs_cooldown_timer - legs_cooldown_timer * 0.3)
+			print("System Reboot executed! Restored energy & reduced remaining cooldowns.")
+			
+		"battle_tank_siege_window":
+			is_special_active = true
+			special_duration_timer = ab.duration
+			current_special_ability_data = ab
+			reactive_plating_charges = 2
+			reactive_plating_damage_multiplier = 0.5
+			recalculate_stats()
+			
+		"skirmisher_momentum_shift":
+			is_special_active = true
+			special_duration_timer = ab.duration
+			current_special_ability_data = ab
+			ghost_buffer_charges = 1
 			recalculate_stats()
 			
 	update_mesh_color()

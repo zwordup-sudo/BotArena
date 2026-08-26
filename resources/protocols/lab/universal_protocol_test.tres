@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ProtocolModuleData" load_steps=3 format=3]
+
+[ext_resource type="Resource" path="res://resources/protocols/abilities/universal_system_reboot.tres" id="1_ability"]
+[ext_resource type="Script" path="res://scripts/data/protocol_module_data.gd" id="2_proto"]
+
+[resource]
+script = ExtResource("2_proto")
+id = "universal_protocol_test"
+display_name = "Universal Protocol"
+description = "General purpose protocol valid for any 4-piece configuration. Provides SYSTEM REBOOT."
+min_tank_percentage = 0.0
+min_assassin_percentage = 0.0
+min_shooter_percentage = 0.0
+min_role_coverage = 0.0
+power_cost = 0.0
+weight_cost = 0.0
+thermal_load = 0.0
+special_ability = ExtResource("1_ability")
+sync_effective_damage_multiplier = 0.08
+sync_kill = 5.0
+sync_damage_mitigated_multiplier = 0.25
+sync_interrupt = 3.0
+sync_projectile_interception = 1.0

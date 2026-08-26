@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "skirmisher_momentum_shift"
+display_name = "MOMENTUM SHIFT"
+description = "Skirmisher Protocol Special: For 3s, gain +10% Move Speed, +10% Attack Rate, and 1 Ghost Buffer guard."
+cooldown = 0.0
+energy_cost = 0.0
+duration = 3.0
+effect_type = 99

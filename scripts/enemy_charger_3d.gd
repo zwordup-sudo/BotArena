@@ -118,8 +118,14 @@ func take_damage(amount: float, source: Node = null) -> void:
 	
 	var final_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, target_armor, flat_pen, pct_pen)
 	
+	var actual_damage = min(final_dmg, current_health)
+	
 	current_health = clamp(current_health - final_dmg, 0.0, max_health)
 	print("EnemyCharger3D remaining health: ", int(current_health))
+	
+	if actual_damage > 0.0 and source and source.has_method("trigger_sync_event"):
+		source.trigger_sync_event("effective_damage", actual_damage)
+		
 	if current_health <= 0.0:
 		if source and source.has_method("notify_kill"):
 			source.notify_kill(self)

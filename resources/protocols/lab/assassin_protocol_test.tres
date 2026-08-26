@@ -16,3 +16,6 @@ power_cost = 0.0
 weight_cost = 0.0
 thermal_load = 0.0
 special_ability = ExtResource("1_ability")
+sync_melee_damage_multiplier = 0.2
+sync_engage_hit = 5.0
+sync_kill = 15.0

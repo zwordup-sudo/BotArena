@@ -16,3 +16,6 @@ power_cost = 0.0
 weight_cost = 0.0
 thermal_load = 0.0
 special_ability = ExtResource("1_ability")
+sync_damage_mitigated_multiplier = 1.0
+sync_stagger = 8.0
+sync_interrupt = 18.0

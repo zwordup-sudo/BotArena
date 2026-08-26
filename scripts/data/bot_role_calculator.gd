@@ -22,17 +22,14 @@ static func calculate(build: Resource) -> Profile:
 		return profile
 		
 	var parts = [build.core, build.get_chassis(), build.arms, build.legs]
+	# Final coverage model 0.1B: There are exactly 4 role-bearing capable physical slots
+	profile.equipped_part_count = 4
+	
 	for part in parts:
 		if part:
 			var t_aff = part.get("tank_affinity") if part.get("tank_affinity") != null else 0.0
 			var a_aff = part.get("assassin_affinity") if part.get("assassin_affinity") != null else 0.0
 			var s_aff = part.get("shooter_affinity") if part.get("shooter_affinity") != null else 0.0
-			
-			# Coverage migration 0.1A: Neutral Lab Chassis does not penalize equipped part count
-			if part.get("slot") == 1 and t_aff == 0.0 and a_aff == 0.0 and s_aff == 0.0:
-				pass
-			else:
-				profile.equipped_part_count += 1
 			
 			profile.tank_score += t_aff
 			profile.assassin_score += a_aff

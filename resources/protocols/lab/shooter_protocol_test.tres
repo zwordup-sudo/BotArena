@@ -16,3 +16,7 @@ power_cost = 0.0
 weight_cost = 0.0
 thermal_load = 0.0
 special_ability = ExtResource("1_ability")
+sync_optimal_range_hit = 6.0
+sync_projectile_interception = 4.0
+sync_interrupt = 8.0
+sync_disruptor_interrupt = 8.0

@@ -30,11 +30,29 @@ The `BotRoleCalculator` detects the number of physical parts equipped to determi
 
 To preserve compatibility, a temporary migration rule is implemented: **Neutral Lab Chassis do not penalize the equipped part count.** The 0.1A `BotRoleCalculator` detects if a part is a Chassis with 0 affinity across all roles and safely ignores it for coverage math. This preserves 100% coverage for existing Full Tank, Full Assassin, and Full Shooter builds.
 
-## Future Plans (Phase 0.1B)
+## Phase 0.1B — Role Chassis & Stat Redistribution
 
-In Phase 0.1B, the neutral chassis will be complemented by role-specific chassis:
-- Tank Chassis
-- Assassin Chassis
-- Shooter Chassis
+In Phase 0.1B, role-specific Chassis are introduced to naturally establish the Chassis as the primary structural component of a build.
 
-At this point, role builds will transition to natural 4-part distributions (25%, 50%, 75%, 100%), and HP/Armor/Weight will be redistributed into the Chassis slot to provide true structural differentiation between builds.
+### Chassis Structural Identity
+The Chassis slot acts as the core of a Bot's structural identity. It carries a heavy percentage of the build's base Hit Points (HP) and Armor, while simultaneously demanding a significant Weight and Power cost. 
+
+### Stat Redistribution Principle
+To ensure existing combat balance was not destroyed, the structural statistics of role chassis were obtained by **redistributing** existing stats from the Core and Legs, rather than simply adding new stats on top. This is treated as a strict **Resource Conservation** problem:
+
+*   **Old Total Power = New Total Power**
+*   **Old Total Weight = New Total Weight**
+*   **Old Total Thermal = New Total Thermal**
+
+### Final Four-Piece Coverage Math
+The coverage percentage is now calculated by dividing the number of physical pieces carrying ANY role affinity by exactly `4` (the total number of physical slots).
+Generic lab components with `0` affinity (such as the Standard Chassis, Standard Core, etc.) do **not** contribute to the affinity count, naturally reducing the coverage percentage.
+
+### Multiple Compatible Protocols
+With the introduction of the 4th role-bearing slot, a hybrid build can now be eligible for multiple protocols simultaneously.
+For example, the classic **T-T-A-T** (Tank Core, Tank Chassis, Assassin Arms, Tank Legs) yields:
+*   Tank Affinity: 75%
+*   Assassin Affinity: 25%
+*   Coverage: 100%
+
+Because Tank is >= 50%, Assassin is >= 25%, and Coverage is >= 67%, this build is eligible for the **Fighter Protocol**, while simultaneously being eligible for the **Tank Protocol** (Tank >= 75%). This emergent flexibility allows players to consciously choose their Special Ability.

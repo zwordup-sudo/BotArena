@@ -18,3 +18,15 @@ extends Resource
 
 # Protocol Special Ability
 @export var special_ability: Resource
+
+@export_group("Sync Generation")
+@export var sync_damage_mitigated_multiplier: float = 0.0
+@export var sync_stagger: float = 0.0
+@export var sync_interrupt: float = 0.0
+@export var sync_melee_damage_multiplier: float = 0.0
+@export var sync_engage_hit: float = 0.0
+@export var sync_kill: float = 0.0
+@export var sync_optimal_range_hit: float = 0.0
+@export var sync_projectile_interception: float = 0.0
+@export var sync_disruptor_interrupt: float = 0.0
+@export var sync_effective_damage_multiplier: float = 0.0

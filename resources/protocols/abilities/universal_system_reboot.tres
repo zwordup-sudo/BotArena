@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "universal_system_reboot"
+display_name = "SYSTEM REBOOT"
+description = "Universal Protocol Special: Restores 35 Energy and reduces remaining Q/E/R cooldowns by 30%."
+cooldown = 0.0
+energy_cost = 0.0
+duration = 0.0
+effect_type = 99
