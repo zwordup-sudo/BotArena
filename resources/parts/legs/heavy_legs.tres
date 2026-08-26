@@ -7,7 +7,7 @@
 script = ExtResource("2_partdata")
 id = "heavy_legs"
 display_name = "Heavy Legs"
-slot = 2
+slot = 3
 system = "Standard"
 max_health_pct = 0.10
 movement_speed_pct = -0.15

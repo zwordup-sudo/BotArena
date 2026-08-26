@@ -8,6 +8,8 @@ const ASSASSIN_TEST_CORE = preload("res://resources/parts/core/assassin_test_cor
 const TANK_TEST_CORE = preload("res://resources/parts/core/tank_test_core.tres")
 const SHOOTER_TEST_CORE = preload("res://resources/parts/core/shooter_test_core.tres")
 
+const STANDARD_CHASSIS = preload("res://resources/parts/chassis/standard_chassis.tres")
+
 const STANDARD_ARMS = preload("res://resources/parts/arms/standard_arms.tres")
 const RAPID_ARMS = preload("res://resources/parts/arms/rapid_arms.tres")
 const HEAVY_ARMS = preload("res://resources/parts/arms/heavy_arms.tres")
@@ -29,12 +31,15 @@ const SHOOTER_PROTO = preload("res://resources/protocols/lab/shooter_protocol_te
 const FIGHTER_PROTO = preload("res://resources/protocols/lab/fighter_protocol_test.tres")
 
 @onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE]
+@onready var chassis_list = [STANDARD_CHASSIS]
 @onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS]
 @onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS]
 @onready var protocol_list = [null, TANK_PROTO, ASSASSIN_PROTO, SHOOTER_PROTO, FIGHTER_PROTO]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
 @onready var core_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreDesc
+@onready var chassis_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ChassisContainer/ChassisSelector
+@onready var chassis_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ChassisDesc
 @onready var arms_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ArmsContainer/ArmsSelector
 @onready var arms_desc: Label = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ArmsDesc
 @onready var legs_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/LegsContainer/LegsSelector
@@ -51,6 +56,10 @@ func _ready() -> void:
 	core_selector.clear()
 	for core in core_list:
 		core_selector.add_item(core.display_name)
+		
+	chassis_selector.clear()
+	for chassis in chassis_list:
+		chassis_selector.add_item(chassis.display_name)
 		
 	arms_selector.clear()
 	for arms in arms_list:
@@ -69,6 +78,7 @@ func _ready() -> void:
 		
 	# Connect signals
 	core_selector.item_selected.connect(_on_part_selected)
+	chassis_selector.item_selected.connect(_on_part_selected)
 	arms_selector.item_selected.connect(_on_part_selected)
 	legs_selector.item_selected.connect(_on_part_selected)
 	protocol_selector.item_selected.connect(_on_protocol_selected)
@@ -80,6 +90,8 @@ func _ready() -> void:
 		# Find and set indices
 		var c_idx = core_list.find(saved_build.core)
 		if c_idx != -1: core_selector.selected = c_idx
+		var ch_idx = chassis_list.find(saved_build.get_chassis())
+		if ch_idx != -1: chassis_selector.selected = ch_idx
 		var a_idx = arms_list.find(saved_build.arms)
 		if a_idx != -1: arms_selector.selected = a_idx
 		var l_idx = legs_list.find(saved_build.legs)
@@ -89,6 +101,7 @@ func _ready() -> void:
 		if p_idx != -1: protocol_selector.selected = p_idx
 	else:
 		core_selector.selected = 0
+		chassis_selector.selected = 0
 		arms_selector.selected = 0
 		legs_selector.selected = 0
 		protocol_selector.selected = 0
@@ -134,25 +147,28 @@ func update_build_and_preview() -> void:
 	# Instantiate standard BotBuild class dynamically to protect original resource files
 	current_build = load("res://scripts/data/bot_build.gd").new()
 	current_build.core = core_list[core_selector.selected]
+	current_build.chassis = chassis_list[chassis_selector.selected]
 	current_build.arms = arms_list[arms_selector.selected]
 	current_build.legs = legs_list[legs_selector.selected]
 	
 	# Update item description labels
 	core_desc.text = get_part_description(current_build.core)
+	chassis_desc.text = get_part_description(current_build.chassis)
 	arms_desc.text = get_part_description(current_build.arms)
 	legs_desc.text = get_part_description(current_build.legs)
 	
 	# Detect preset name
 	var build_name = "CUSTOM"
 	var c_idx = core_selector.selected
+	var ch_idx = chassis_selector.selected
 	var a_idx = arms_selector.selected
 	var l_idx = legs_selector.selected
 	
-	if c_idx == 0 and a_idx == 0 and l_idx == 0:
+	if c_idx == 0 and ch_idx == 0 and a_idx == 0 and l_idx == 0:
 		build_name = "BALANCED"
-	elif c_idx == 1 and a_idx == 1 and l_idx == 1:
+	elif c_idx == 1 and ch_idx == 0 and a_idx == 1 and l_idx == 1:
 		build_name = "SCOUT"
-	elif c_idx == 2 and a_idx == 2 and l_idx == 2:
+	elif c_idx == 2 and ch_idx == 0 and a_idx == 2 and l_idx == 2:
 		build_name = "HEAVY"
 		
 	# Call Calculator to get final effective stats after overload penalties

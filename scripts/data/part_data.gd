@@ -1,7 +1,7 @@
 class_name PartData
 extends Resource
 
-enum Slot { CORE, ARMS, LEGS }
+enum Slot { CORE, CHASSIS, ARMS, LEGS }
 
 @export var id: String = ""
 @export var display_name: String = ""

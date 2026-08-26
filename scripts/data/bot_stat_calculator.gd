@@ -21,7 +21,7 @@ static func calculate(build: Resource) -> RefCounted: # Returns BotEffectiveStat
 	var weight = 0.0
 	var thermal = 0.0
 	
-	var parts = [build.core, build.arms, build.legs]
+	var parts = [build.core, build.get_chassis(), build.arms, build.legs]
 	for part in parts:
 		if part:
 			hp_pct += part.get("max_health_pct") if part.get("max_health_pct") != null else 0.0

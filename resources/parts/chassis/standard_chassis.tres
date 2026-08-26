@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "standard_chassis"
+display_name = "Standard Chassis"
+slot = 1
+system = "Standard"
+max_health_pct = 0.0
+movement_speed_pct = 0.0
+fire_rate_pct = 0.0
+projectile_damage_pct = 0.0
+projectile_speed_pct = 0.0
+dash_speed_pct = 0.0
+dash_cooldown_pct = 0.0
+dash_duration_pct = 0.0
+power_cost = 0.0
+weight_cost = 0.0
+thermal_load = 0.0
+tank_affinity = 0.0
+assassin_affinity = 0.0
+shooter_affinity = 0.0
+armor = 0.0
+flat_armor_penetration = 0.0
+percent_armor_penetration = 0.0

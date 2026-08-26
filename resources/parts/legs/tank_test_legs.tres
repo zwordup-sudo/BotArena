@@ -7,7 +7,7 @@
 script = ExtResource("2_partdata")
 id = "tank_test_legs"
 display_name = "Tank Test Legs"
-slot = 2
+slot = 3
 system = "Standard"
 max_health_pct = 0.10
 movement_speed_pct = 0.05

@@ -21,14 +21,18 @@ static func calculate(build: Resource) -> Profile:
 	if not build:
 		return profile
 		
-	var parts = [build.core, build.arms, build.legs]
+	var parts = [build.core, build.get_chassis(), build.arms, build.legs]
 	for part in parts:
 		if part:
-			profile.equipped_part_count += 1
-			
 			var t_aff = part.get("tank_affinity") if part.get("tank_affinity") != null else 0.0
 			var a_aff = part.get("assassin_affinity") if part.get("assassin_affinity") != null else 0.0
 			var s_aff = part.get("shooter_affinity") if part.get("shooter_affinity") != null else 0.0
+			
+			# Coverage migration 0.1A: Neutral Lab Chassis does not penalize equipped part count
+			if part.get("slot") == 1 and t_aff == 0.0 and a_aff == 0.0 and s_aff == 0.0:
+				pass
+			else:
+				profile.equipped_part_count += 1
 			
 			profile.tank_score += t_aff
 			profile.assassin_score += a_aff

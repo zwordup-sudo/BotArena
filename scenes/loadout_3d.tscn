@@ -61,6 +61,24 @@ theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 theme_override_font_sizes/font_size = 11
 autowrap_mode = 2
 
+[node name="ChassisContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/ScrollContent"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ChassisContainer"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "CHASSIS:"
+
+[node name="ChassisSelector" type="OptionButton" parent="MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/ChassisContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ChassisDesc" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/ScrollContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 11
+autowrap_mode = 2
+
 [node name="ArmsContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/ScrollContent"]
 layout_mode = 2
 
