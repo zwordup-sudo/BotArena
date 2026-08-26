@@ -19,9 +19,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -200.0
-offset_top = -250.0
+offset_top = -280.0
 offset_right = 200.0
-offset_bottom = 250.0
+offset_bottom = 280.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -82,6 +82,22 @@ size_flags_horizontal = 3
 min_value = 0.0
 max_value = 8.0
 value = 1.0
+
+[node name="DummyArmorContainer" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/DummyArmorContainer"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+text = "DUMMY ARMOR:"
+
+[node name="DummyArmorSpin" type="SpinBox" parent="Panel/VBox/DummyArmorContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 100.0
+step = 5.0
+value = 0.0
 
 [node name="ShooterContainer" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2

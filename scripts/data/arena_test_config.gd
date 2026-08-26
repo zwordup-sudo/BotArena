@@ -5,3 +5,4 @@ class_name ArenaTestConfig
 @export var dummy_count: int = 1
 @export var shooter_count: int = 3
 @export var charger_count: int = 1
+@export var dummy_armor: float = 0.0

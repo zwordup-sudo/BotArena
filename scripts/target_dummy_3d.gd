@@ -1,6 +1,7 @@
 extends Area3D
 
 @export var max_health: float = 100.0
+@export var armor: float = 0.0
 @onready var current_health: float = max_health
 
 func take_damage(amount: float, source: Node = null) -> void:
@@ -9,9 +10,13 @@ func take_damage(amount: float, source: Node = null) -> void:
 		
 	var flat_pen = source.get("flat_armor_penetration") if (source and source.get("flat_armor_penetration") != null) else 0.0
 	var pct_pen = source.get("percent_armor_penetration") if (source and source.get("percent_armor_penetration") != null) else 0.0
-	var target_armor = self.get("armor") if self.get("armor") != null else 0.0
 	
-	var final_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, target_armor, flat_pen, pct_pen)
+	var effective_armor = max(0.0, armor - flat_pen)
+	effective_armor = effective_armor * (1.0 - clamp(pct_pen, 0.0, 1.0))
+	var final_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, armor, flat_pen, pct_pen)
+	
+	if armor > 0.0:
+		print("DUMMY HIT | RAW: ", snapped(amount, 0.01), " | ARMOR: ", int(armor), " | EFF ARMOR: ", snapped(effective_armor, 0.01), " | FINAL: ", snapped(final_dmg, 0.01))
 	
 	current_health = clamp(current_health - final_dmg, 0.0, max_health)
 	print("TargetDummy3D remaining health: ", int(current_health))

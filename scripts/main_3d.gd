@@ -107,6 +107,7 @@ func _ready() -> void:
 		var dummy = DUMMY_SCENE.instantiate()
 		dummy.position = spawn_points[idx]
 		$Arena3D.add_child(dummy)
+		dummy.armor = config.dummy_armor
 		idx += 1
 		
 	# Spawn Enemy Shooters

@@ -2,6 +2,7 @@ extends Control
 
 @onready var size_selector: OptionButton = $Panel/VBox/SizeContainer/SizeSelector
 @onready var dummy_spin: SpinBox = $Panel/VBox/DummyContainer/DummySpin
+@onready var dummy_armor_spin: SpinBox = $Panel/VBox/DummyArmorContainer/DummyArmorSpin
 @onready var shooter_spin: SpinBox = $Panel/VBox/ShooterContainer/ShooterSpin
 @onready var charger_spin: SpinBox = $Panel/VBox/ChargerContainer/ChargerSpin
 @onready var preset_selector: OptionButton = $Panel/VBox/PresetContainer/PresetSelector
@@ -32,6 +33,7 @@ func _ready() -> void:
 		if size_idx != -1:
 			size_selector.selected = size_idx
 		dummy_spin.value = config.dummy_count
+		dummy_armor_spin.value = config.dummy_armor
 		shooter_spin.value = config.shooter_count
 		charger_spin.value = config.charger_count
 		
@@ -40,6 +42,7 @@ func _ready() -> void:
 	preset_selector.item_selected.connect(_on_preset_selected)
 	size_selector.item_selected.connect(_on_val_changed)
 	dummy_spin.value_changed.connect(_on_val_changed)
+	dummy_armor_spin.value_changed.connect(_on_val_changed)
 	shooter_spin.value_changed.connect(_on_val_changed)
 	charger_spin.value_changed.connect(_on_val_changed)
 	
@@ -52,30 +55,35 @@ func _on_preset_selected(idx: int) -> void:
 	if preset_name == "BASELINE":
 		size_selector.selected = 1 # STANDARD
 		dummy_spin.value = 1
+		dummy_armor_spin.value = 0
 		shooter_spin.value = 3
 		charger_spin.value = 1
 	elif preset_name == "RANGED PRESSURE":
 		size_selector.selected = 2 # LARGE
 		dummy_spin.value = 1
+		dummy_armor_spin.value = 0
 		shooter_spin.value = 6
 		charger_spin.value = 0
 	elif preset_name == "MELEE PRESSURE":
 		size_selector.selected = 2 # LARGE
 		dummy_spin.value = 1
+		dummy_armor_spin.value = 0
 		shooter_spin.value = 1
 		charger_spin.value = 4
 	elif preset_name == "CHAOS":
 		size_selector.selected = 3 # XL
 		dummy_spin.value = 1
+		dummy_armor_spin.value = 0
 		shooter_spin.value = 6
 		charger_spin.value = 3
 
 func _on_val_changed(_val = null) -> void:
 	# If manually tweaking values, mark preset as CUSTOM unless it matches a preset
-	var is_baseline = (size_selector.selected == 1 and dummy_spin.value == 1 and shooter_spin.value == 3 and charger_spin.value == 1)
-	var is_ranged = (size_selector.selected == 2 and dummy_spin.value == 1 and shooter_spin.value == 6 and charger_spin.value == 0)
-	var is_melee = (size_selector.selected == 2 and dummy_spin.value == 1 and shooter_spin.value == 1 and charger_spin.value == 4)
-	var is_chaos = (size_selector.selected == 3 and dummy_spin.value == 1 and shooter_spin.value == 6 and charger_spin.value == 3)
+	var da = int(dummy_armor_spin.value)
+	var is_baseline = (size_selector.selected == 1 and dummy_spin.value == 1 and da == 0 and shooter_spin.value == 3 and charger_spin.value == 1)
+	var is_ranged = (size_selector.selected == 2 and dummy_spin.value == 1 and da == 0 and shooter_spin.value == 6 and charger_spin.value == 0)
+	var is_melee = (size_selector.selected == 2 and dummy_spin.value == 1 and da == 0 and shooter_spin.value == 1 and charger_spin.value == 4)
+	var is_chaos = (size_selector.selected == 3 and dummy_spin.value == 1 and da == 0 and shooter_spin.value == 6 and charger_spin.value == 3)
 	
 	if is_baseline:
 		preset_selector.selected = 0
@@ -99,6 +107,7 @@ func _on_start_pressed() -> void:
 	var config = GameSession.get_arena_config()
 	config.arena_size_id = ["SMALL", "STANDARD", "LARGE", "XL"][size_selector.selected]
 	config.dummy_count = int(dummy_spin.value)
+	config.dummy_armor = dummy_armor_spin.value
 	config.shooter_count = int(shooter_spin.value)
 	config.charger_count = int(charger_spin.value)
 	
