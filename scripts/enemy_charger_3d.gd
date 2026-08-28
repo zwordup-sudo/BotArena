@@ -108,7 +108,7 @@ func transition_to(new_state: State) -> void:
 		State.RECOVERY:
 			mesh_instance.material_override = normal_material
 
-func take_damage(amount: float, source: Node = null) -> void:
+func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -> void:
 	if is_dead:
 		return
 		

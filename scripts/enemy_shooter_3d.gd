@@ -57,7 +57,7 @@ func shoot() -> void:
 		proj.global_position = origin_pos
 		proj.direction = dir
 
-func take_damage(amount: float, source: Node = null) -> void:
+func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -> void:
 	if is_dead:
 		return
 		

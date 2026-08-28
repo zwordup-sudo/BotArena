@@ -184,6 +184,8 @@ var current_build_name: String = "BALANCED"
 # Combo State tracking fields
 var current_combo_index: int = 0
 var last_attack_time: float = -999.0
+var current_attack_event_id: int = 0
+const AptenStatusController = preload("res://scripts/apten_status_controller.gd")
 
 func _ready() -> void:
 	# Dynamically map protocol_special input to key F if not already registered
@@ -654,6 +656,7 @@ func _process(delta: float) -> void:
 	update_canvas_hud()
 
 func activate_core_ability() -> void:
+	current_attack_event_id += 1
 	if not bot_build or not bot_build.core or not bot_build.core.active_ability:
 		return
 	var ability = bot_build.core.active_ability as AbilityData
@@ -900,6 +903,7 @@ func end_core_ability() -> void:
 	recalculate_stats()
 
 func activate_arms_ability() -> void:
+	current_attack_event_id += 1
 	if not bot_build or not bot_build.arms or not bot_build.arms.active_ability:
 		return
 	var ability = bot_build.arms.active_ability as AbilityData
@@ -951,6 +955,7 @@ func activate_arms_ability() -> void:
 func execute_disruptor_round(ability: AbilityData) -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
 	proj.source_actor = self
+	proj.set("attack_event_id", current_attack_event_id)
 	proj.damage = projectile_damage * ability.damage_multiplier
 	proj.speed = projectile_speed * ability.projectile_speed_multiplier
 	proj.stagger_duration = ability.stagger_duration
@@ -986,6 +991,7 @@ func execute_burst_volley(ability: AbilityData) -> void:
 func fire_burst_projectile(dmg_mult: float) -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
 	proj.source_actor = self
+	proj.set("attack_event_id", current_attack_event_id)
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
@@ -1032,6 +1038,7 @@ func fire_charged_shot() -> void:
 	
 	var proj = PROJECTILE_SCENE.instantiate()
 	proj.source_actor = self
+	proj.set("attack_event_id", current_attack_event_id)
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
@@ -1118,7 +1125,7 @@ func execute_execution_rush(ability: AbilityData) -> void:
 	var strike_dmg = base_melee_dmg * ability.strike_damage_multiplier
 	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
 		strike_dmg *= 1.10
-	best_target.take_damage(strike_dmg, self)
+	best_target.take_damage(strike_dmg, self, current_attack_event_id)
 	trigger_sync_event("engage_hit")
 	trigger_sync_event("melee_damage", strike_dmg)
 	
@@ -1163,7 +1170,7 @@ func execute_concussive_slam_hit(ability: AbilityData) -> void:
 	for res in results:
 		var collider = res.collider
 		if is_instance_valid(collider) and collider.has_method("take_damage"):
-			collider.take_damage(slam_dmg, self)
+			collider.take_damage(slam_dmg, self, current_attack_event_id)
 			if collider.has_method("apply_stagger"):
 				collider.apply_stagger(ability.stagger_duration, self)
 
@@ -1246,6 +1253,7 @@ func process_melee_interception() -> void:
 			is_melee_intercepting = false
 
 func activate_legs_ability() -> void:
+	current_attack_event_id += 1
 	if not bot_build or not bot_build.legs or not bot_build.legs.active_ability:
 		return
 	var ability = bot_build.legs.active_ability as AbilityData
@@ -1666,6 +1674,7 @@ func start_dash() -> void:
 	dash_cooldown_timer = dash_cooldown
 
 func shoot() -> void:
+	current_attack_event_id += 1
 	if not bot_build or not bot_build.arms:
 		push_warning("Primary attack failed: No arms equipped.")
 		return
@@ -1699,6 +1708,7 @@ func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
 	else:
 		var proj = proj_scene.instantiate()
 		proj.source_actor = self
+		proj.set("attack_event_id", current_attack_event_id)
 		var aim_dir = -aim_pivot.global_transform.basis.z
 		aim_dir.y = 0.0
 		aim_dir = aim_dir.normalized()
@@ -1720,6 +1730,7 @@ func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
 func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: float) -> void:
 	var proj = proj_scene.instantiate()
 	proj.source_actor = self
+	proj.set("attack_event_id", current_attack_event_id)
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
 	aim_dir = aim_dir.normalized()
@@ -1875,7 +1886,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 			print("  Inside arc: ", inside_arc)
 			
 			if inside_range and inside_arc:
-				collider.take_damage(final_dmg, self)
+				collider.take_damage(final_dmg, self, current_attack_event_id)
 				trigger_sync_event("melee_damage", final_dmg)
 				print("  Damage applied: ", final_dmg)
 			else:
@@ -1932,7 +1943,7 @@ func execute_thrust_impact_hit(attack_data: PrimaryAttackData, aim_dir: Vector3)
 			var inside_box = (dot >= 0.0) and (dot <= range_val) and (perp_dist <= width_val / 2.0)
 			
 			if inside_box:
-				collider.take_damage(final_dmg, self)
+				collider.take_damage(final_dmg, self, current_attack_event_id)
 				trigger_sync_event("melee_damage", final_dmg)
 				print("Hit Target: ", collider.name, " inside impact box. Damage applied: ", final_dmg)
 				
@@ -2025,7 +2036,7 @@ func create_melee_visual_custom(range_val: float, arc_deg: float, color: Color, 
 	tween.tween_property(mat, "albedo_color:a", 0.0, duration)
 	tween.tween_callback(mesh_instance.queue_free)
 
-func take_damage(amount: float, source: Node = null) -> void:
+func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -> void:
 	var flat_pen = source.get("flat_armor_penetration") if (source and source.get("flat_armor_penetration") != null) else 0.0
 	var pct_pen = source.get("percent_armor_penetration") if (source and source.get("percent_armor_penetration") != null) else 0.0
 	
@@ -2054,6 +2065,7 @@ func take_damage(amount: float, source: Node = null) -> void:
 		die()
 
 func die() -> void:
+	AptenStatusController.clear_all_from_source(self)
 	print("Player3D defeated")
 	get_tree().call_deferred("reload_current_scene")
 
@@ -2076,6 +2088,7 @@ func aim_to_mouse() -> void:
 				aim_pivot.look_at(look_target, Vector3.UP)
 
 func activate_protocol_special() -> void:
+	current_attack_event_id += 1
 	if not bot_build or not bot_build.protocol_module or not bot_build.protocol_module.special_ability:
 		return
 	if current_sync < 100.0 or is_special_active or is_salvo_winding_up:
@@ -2116,7 +2129,7 @@ func activate_protocol_special() -> void:
 			for res in results:
 				var collider = res.collider
 				if is_instance_valid(collider) and collider.has_method("take_damage"):
-					collider.take_damage(slam_dmg, self)
+					collider.take_damage(slam_dmg, self, current_attack_event_id)
 					if collider.has_method("apply_stagger"):
 						collider.apply_stagger(1.0, self)
 						
@@ -2194,6 +2207,7 @@ func execute_rail_salvo() -> void:
 	
 	var proj = PROJECTILE_SCENE.instantiate()
 	proj.source_actor = self
+	proj.set("attack_event_id", current_attack_event_id)
 	proj.damage = projectile_damage * ab.damage_multiplier # 3.0x damage
 	proj.speed = projectile_speed * 2.0 # 2.0x speed
 	proj.can_be_intercepted = true
@@ -2327,3 +2341,6 @@ func _on_bastion_area_entered(other_area: Area3D) -> void:
 			
 		if bastion_charges <= 0:
 			end_protocol_special()
+
+
+

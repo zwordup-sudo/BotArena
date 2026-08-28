@@ -10,6 +10,7 @@ extends Area3D
 @export var percent_armor_penetration: float = 0.0
 
 var direction: Vector3 = Vector3.FORWARD
+var attack_event_id: int = 0
 var source_actor: Node = null
 
 # Safety pattern for anti-double-hit (consumed state)
@@ -52,7 +53,7 @@ func _on_body_entered(body: Node3D) -> void:
 			
 	is_consumed = true
 	if body.has_method("take_damage"):
-		body.take_damage(damage, self)
+		body.take_damage(damage, self, attack_event_id)
 	queue_free()
 
 func get_interception_power() -> float:

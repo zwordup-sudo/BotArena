@@ -4,7 +4,7 @@ extends Area3D
 @export var armor: float = 0.0
 @onready var current_health: float = max_health
 
-func take_damage(amount: float, source: Node = null) -> void:
+func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -> void:
 	if current_health <= 0.0:
 		return
 		

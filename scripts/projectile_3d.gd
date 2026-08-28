@@ -9,6 +9,8 @@ extends Area3D
 @export var flat_armor_penetration: float = 0.0
 @export var percent_armor_penetration: float = 0.0
 
+var attack_event_id: int = 0
+
 var direction: Vector3 = Vector3.FORWARD
 var source_actor: Node = null
 
@@ -160,11 +162,13 @@ func _on_area_entered(area: Area3D) -> void:
 		
 	if area.has_method("take_damage"):
 		is_consumed = true
-		var traveled = spawn_position.distance_to(global_position)
-		if source_actor and source_actor.has_method("trigger_sync_event"):
-			if optimal_range_threshold > 0.0 and traveled >= optimal_range_threshold:
-				source_actor.trigger_sync_event("optimal_range_hit")
-		area.take_damage(get_calculated_damage(), source_actor)
+		var diff = global_position - spawn_position
+		diff.y = 0.0
+		var dist = diff.length()
+		if optimal_range_threshold > 0.0 and dist >= optimal_range_threshold:
+			area.take_damage(get_calculated_damage(), source_actor, attack_event_id)
+		else:
+			area.take_damage(get_calculated_damage(), source_actor, attack_event_id)
 		if area.has_method("apply_stagger") and stagger_duration > 0.0:
 			area.apply_stagger(stagger_duration, source_actor)
 		if custom_color.a > 0.0:
@@ -197,11 +201,13 @@ func _on_body_entered(body: Node3D) -> void:
 		
 	is_consumed = true
 	if body.has_method("take_damage"):
-		var traveled = spawn_position.distance_to(global_position)
-		if source_actor and source_actor.has_method("trigger_sync_event"):
-			if optimal_range_threshold > 0.0 and traveled >= optimal_range_threshold:
-				source_actor.trigger_sync_event("optimal_range_hit")
-		body.take_damage(get_calculated_damage(), source_actor)
+		var diff = global_position - spawn_position
+		diff.y = 0.0
+		var dist = diff.length()
+		if optimal_range_threshold > 0.0 and dist >= optimal_range_threshold:
+			body.take_damage(get_calculated_damage(), source_actor, attack_event_id)
+		else:
+			body.take_damage(get_calculated_damage(), source_actor, attack_event_id)
 		if body.has_method("apply_stagger") and stagger_duration > 0.0:
 			body.apply_stagger(stagger_duration, source_actor)
 	if custom_color.a > 0.0:
