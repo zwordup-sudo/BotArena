@@ -707,6 +707,11 @@ func start_directional_barrier(ability: AbilityData) -> void:
 	# Dynamically instantiate front-facing barrier colliders under aim pivot
 	if not barrier_node:
 		barrier_node = Area3D.new()
+		barrier_node.name = "DirectionalBarrier"
+		barrier_node.collision_layer = 16
+		barrier_node.collision_mask = 8 # monitor Layer 4 (hostile projectile)
+		barrier_node.monitoring = true
+		barrier_node.monitorable = false
 		
 		# Set collision shape bounds matching frontal wall
 		var col = CollisionShape3D.new()
@@ -745,9 +750,18 @@ func _on_barrier_area_entered(area: Area3D) -> void:
 		
 	# Blocks hostile interceptable projectiles
 	if area.is_in_group("hostile_projectile") and area.get("can_be_intercepted") == true:
-		if not area.is_queued_for_deletion():
-			area.queue_free() # Destroys hostile projectile
-			deduct_barrier_durability()
+		if area.get("is_consumed") == true:
+			return
+			
+		area.set("is_consumed", true)
+		
+		if area.has_method("take_interception_damage"):
+			area.take_interception_damage(area.get("interception_durability") if area.get("interception_durability") != null else 1.0)
+		else:
+			if not area.is_queued_for_deletion():
+				area.queue_free()
+				
+		deduct_barrier_durability()
 
 func deduct_barrier_durability() -> void:
 	barrier_durability -= 1
