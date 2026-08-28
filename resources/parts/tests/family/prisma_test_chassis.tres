@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_7neqo"]
+
+[resource]
+script = ExtResource("1_7neqo")
+id = "prisma_test_chassis"
+display_name = "PRISMA Test Chassis"
+slot = 1
+prisma_affinity = 1.0

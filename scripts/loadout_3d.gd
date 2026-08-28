@@ -358,7 +358,7 @@ func update_build_and_preview() -> void:
 		)
 	var eligibility_txt = "PROTOCOL ELIGIBILITY\n\n" + "\n\n".join(eligibility_lines)
 
-	var coverage_str = "Coverage:\n%d%%" % int(profile.coverage_percentage)
+	var coverage_str = "Role Coverage:\n%d%%" % int(profile.coverage_percentage)
 	if profile.is_partial:
 		coverage_str += "\n\nPARTIAL PROFILE"
 		
@@ -368,6 +368,19 @@ func update_build_and_preview() -> void:
 		"Assassin   %3d%%\n" % int(profile.assassin_percentage) +
 		"Shooter    %3d%%\n\n" % int(profile.shooter_percentage) +
 		coverage_str
+	)
+	
+	# Calculate Family Profile
+	var family_profile = load("res://scripts/data/bot_family_calculator.gd").calculate(current_build)
+	var family_coverage_str = "Family Coverage:\n%d%%" % int(family_profile.coverage_percentage)
+	
+	var family_profile_txt = (
+		"FAMILY PROFILE\n\n" +
+		"VENTRA     %3d%%\n" % int(family_profile.ventra_percentage) +
+		"APTEN      %3d%%\n" % int(family_profile.apten_percentage) +
+		"PRISMA     %3d%%\n" % int(family_profile.prisma_percentage) +
+		"MOSAIC     %3d%%\n\n" % int(family_profile.mosaic_percentage) +
+		family_coverage_str
 	)
 	
 	stats_label.text = (
@@ -384,6 +397,7 @@ func update_build_and_preview() -> void:
 		legs_txt + "\n\n" +
 		protocol_txt + "\n\n========================================\n" +
 		role_profile_txt + "\n\n========================================\n" +
+		family_profile_txt + "\n\n========================================\n" +
 		eligibility_txt
 	)
 

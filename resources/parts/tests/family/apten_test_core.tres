@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_lpx3k"]
+
+[resource]
+script = ExtResource("1_lpx3k")
+id = "apten_test_core"
+display_name = "APTEN Test Core"
+apten_affinity = 1.0

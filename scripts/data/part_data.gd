@@ -34,6 +34,12 @@ enum Slot { CORE, CHASSIS, ARMS, LEGS }
 @export var assassin_affinity: float = 0.0
 @export var shooter_affinity: float = 0.0
 
+# Family Affinity fields (independent descriptive build profile)
+@export var ventra_affinity: float = 0.0
+@export var apten_affinity: float = 0.0
+@export var prisma_affinity: float = 0.0
+@export var mosaic_affinity: float = 0.0
+
 # Armor System 0.1A
 @export var armor: float = 0.0
 @export var flat_armor_penetration: float = 0.0

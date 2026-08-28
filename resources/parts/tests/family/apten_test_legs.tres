@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_81srt"]
+
+[resource]
+script = ExtResource("1_81srt")
+id = "apten_test_legs"
+display_name = "APTEN Test Legs"
+slot = 3
+apten_affinity = 1.0

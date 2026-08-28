@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_h7hdf"]
+
+[resource]
+script = ExtResource("1_h7hdf")
+id = "ventra_test_chassis"
+display_name = "VENTRA Test Chassis"
+slot = 1
+ventra_affinity = 1.0

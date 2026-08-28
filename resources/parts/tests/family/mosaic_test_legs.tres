@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_ig61y"]
+
+[resource]
+script = ExtResource("1_ig61y")
+id = "mosaic_test_legs"
+display_name = "MOSAIC Test Legs"
+slot = 3
+mosaic_affinity = 1.0
