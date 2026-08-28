@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_warden"]
+[ext_resource type="Resource" path="res://resources/abilities/core/apten_quarantine_gate.tres" id="2_ability"]
+
+[resource]
+script = ExtResource("1_warden")
+id = "apten_warden_core"
+display_name = "APTEN Warden Core"
+slot = 0
+system = "APTEN"
+max_health_pct = 0.05
+movement_speed_pct = 0.0
+fire_rate_pct = 0.0
+projectile_damage_pct = 0.0
+projectile_speed_pct = 0.0
+dash_speed_pct = 0.0
+dash_cooldown_pct = 0.0
+dash_duration_pct = 0.0
+power_cost = 22.0
+weight_cost = 20.0
+thermal_load = 14.0
+active_ability = ExtResource("2_ability")
+tank_affinity = 2.0
+assassin_affinity = 0.0
+shooter_affinity = 0.0
+ventra_affinity = 0.0
+apten_affinity = 1.0
+prisma_affinity = 0.0
+mosaic_affinity = 0.0
+armor = 3.0
+flat_armor_penetration = 0.0
+percent_armor_penetration = 0.0

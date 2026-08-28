@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_fr"]
+
+[resource]
+script = ExtResource("1_fr")
+id = "apten_firewall_route"
+display_name = "Firewall Route"
+description = "Heavy traversal that leaves a temporary Firewall trail. Crossers are slowed and Compromised."
+energy_cost = 30.0
+cooldown = 7.0
+duration = 0.38
+effect_type = 20
+pulse_radius = 0.0
+movement_speed_pct = 0.0
+dash_speed_pct = 0.0
+incoming_damage_multiplier = 1.0
+projectile_count = 0
+shot_interval = 0.0
+projectile_damage_multiplier = 1.0
+fire_rate_multiplier = 1.0
+charge_time = 0.0
+projectile_size_multiplier = 1.0
+projectile_speed_multiplier = 1.0
+movement_distance = 0.0
+ability_move_speed = 10.0
+availability_duration = 0.0
+lunge_duration = 0.0
+recovery_duration = 0.0
+blink_distance = 0.0
+projectile_block_capacity = 0
+refresh_dash_on_activate = false
+projectiles_per_shot = 0
+spread_angle_degrees = 0.0
+fire_rate_flat_bonus = 0.0
+projectile_evasion_duration = 0.0
+projectile_guard_charges = 0
+kill_refresh_window = 0.0
+refresh_own_cooldown_on_kill = false
+maximum_refreshes_per_activation = 0
+target_range = 0.0
+target_cone_degrees = 0.0
+strike_damage_multiplier = 1.0
+projectile_mitigation_charges = 0
+effect_radius = 0.0
+contact_stagger_duration = 0.0
+windup_time = 0.0
+damage_multiplier = 1.0
+stagger_duration = 0.0
+can_interrupt = false
+temporary_fire_rate_pct = 0.0
+temporary_projectile_speed_pct = 0.0
+temporary_movement_speed_pct = 0.0

@@ -28,6 +28,11 @@ const ASSASSIN_TEST_LEGS = preload("res://resources/parts/legs/assassin_test_leg
 const TANK_TEST_LEGS = preload("res://resources/parts/legs/tank_test_legs.tres")
 const SHOOTER_TEST_LEGS = preload("res://resources/parts/legs/shooter_test_legs.tres")
 
+const APTEN_WARDEN_CORE = preload("res://resources/parts/apten/tank/apten_warden_core.tres")
+const APTEN_WARDEN_CHASSIS = preload("res://resources/parts/apten/tank/apten_warden_chassis.tres")
+const APTEN_WARDEN_ARMS = preload("res://resources/parts/apten/tank/apten_warden_arms.tres")
+const APTEN_WARDEN_LEGS = preload("res://resources/parts/apten/tank/apten_warden_legs.tres")
+
 const TANK_PROTO = preload("res://resources/protocols/lab/tank_protocol_test.tres")
 const ASSASSIN_PROTO = preload("res://resources/protocols/lab/assassin_protocol_test.tres")
 const SHOOTER_PROTO = preload("res://resources/protocols/lab/shooter_protocol_test.tres")
@@ -36,10 +41,10 @@ const UNIVERSAL_PROTO = preload("res://resources/protocols/lab/universal_protoco
 const BATTLE_TANK_PROTO = preload("res://resources/protocols/lab/battle_tank_protocol_test.tres")
 const SKIRMISHER_PROTO = preload("res://resources/protocols/lab/skirmisher_protocol_test.tres")
 
-@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE]
-@onready var chassis_list = [STANDARD_CHASSIS, TANK_TEST_CHASSIS, ASSASSIN_TEST_CHASSIS, SHOOTER_TEST_CHASSIS]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS]
-@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS]
+@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE, APTEN_WARDEN_CORE]
+@onready var chassis_list = [STANDARD_CHASSIS, TANK_TEST_CHASSIS, ASSASSIN_TEST_CHASSIS, SHOOTER_TEST_CHASSIS, APTEN_WARDEN_CHASSIS]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS, APTEN_WARDEN_ARMS]
+@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS, APTEN_WARDEN_LEGS]
 @onready var protocol_list = [null, UNIVERSAL_PROTO, TANK_PROTO, ASSASSIN_PROTO, SHOOTER_PROTO, FIGHTER_PROTO, BATTLE_TANK_PROTO, SKIRMISHER_PROTO]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector

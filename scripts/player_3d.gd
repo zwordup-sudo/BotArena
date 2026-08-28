@@ -179,12 +179,19 @@ var vector_strafe_timer: float = 0.0
 var vector_strafe_direction: Vector3 = Vector3.ZERO
 var vector_strafe_speed: float = 0.0
 
+var is_firewall_routing: bool = false
+var firewall_route_timer: float = 0.0
+var firewall_route_speed: float = 0.0
+var firewall_route_start_pos: Vector3 = Vector3.ZERO
+var firewall_route_direction: Vector3 = Vector3.ZERO
+
 var current_build_name: String = "BALANCED"
 
 # Combo State tracking fields
 var current_combo_index: int = 0
 var last_attack_time: float = -999.0
 var current_attack_event_id: int = 0
+var apten_intrusion_tracker: Node = null
 const AptenStatusController = preload("res://scripts/apten_status_controller.gd")
 
 func _ready() -> void:
@@ -353,6 +360,20 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	bastion_field_node = null
 	bastion_charges = 0
 	
+	# -- APTEN Intrusion Tracker lifecycle --
+	# Always tear down first so no stale attacker history survives a build swap.
+	if is_instance_valid(apten_intrusion_tracker):
+		apten_intrusion_tracker.queue_free()
+	apten_intrusion_tracker = null
+	
+	# Attach a fresh tracker only when the Warden Chassis is in the build.
+	var _chassis = new_build.get_chassis() if new_build else null
+	if _chassis and _chassis.id == "apten_warden_chassis":
+		var TrackerClass = load("res://scripts/apten_intrusion_tracker.gd")
+		apten_intrusion_tracker = TrackerClass.new()
+		apten_intrusion_tracker.init_tracker(self)
+		add_child(apten_intrusion_tracker)
+	
 	recalculate_stats()
 	current_health = max_health
 	
@@ -422,12 +443,17 @@ func _unhandled_input(event: InputEvent) -> void:
 				if has_node("/root/GameSession"):
 					GameSession.set_selected_build(HEAVY_BUILD)
 			KEY_4:
+				var APTEN_WARDEN_BUILD = load("res://resources/builds/apten_warden_build.tres")
+				apply_build(APTEN_WARDEN_BUILD, "APTEN WARDEN")
+				if has_node("/root/GameSession"):
+					GameSession.set_selected_build(APTEN_WARDEN_BUILD)
+			KEY_5:
 				core_idx = (core_idx + 1) % core_list.size()
 				apply_custom_build()
-			KEY_5:
+			KEY_6:
 				arms_idx = (arms_idx + 1) % arms_list.size()
 				apply_custom_build()
-			KEY_6:
+			KEY_7:
 				legs_idx = (legs_idx + 1) % legs_list.size()
 				apply_custom_build()
 
@@ -485,14 +511,36 @@ func _physics_process(delta: float) -> void:
 	# Handle Vector Strafe Movement (Shooter Legs committed strafe reposition)
 	if is_vector_strafing:
 		vector_strafe_timer -= delta
+		var velocity_vec = vector_strafe_direction * vector_strafe_speed * delta
+		move_and_collide(velocity_vec)
 		if vector_strafe_timer <= 0.0:
 			is_vector_strafing = false
 			is_legs_active = false
 			update_mesh_color()
-		else:
-			velocity = vector_strafe_direction * vector_strafe_speed
-			move_and_slide()
-			return
+	elif is_firewall_routing:
+		firewall_route_timer -= delta
+		var velocity_vec = firewall_route_direction * firewall_route_speed * delta
+		move_and_collide(velocity_vec)
+		if firewall_route_timer <= 0.0:
+			# Capture final position BEFORE clearing state
+			var end_pos = global_position
+			is_firewall_routing = false
+			is_legs_active = false
+			update_mesh_color()
+			
+			# Spawn exactly ONE trail spanning start -> end
+			var diff = end_pos - firewall_route_start_pos
+			diff.y = 0.0
+			var dist = diff.length()
+			var trail = load("res://scripts/apten_firewall_trail.gd").new()
+			trail.owner_node = self
+			trail.duration = 2.0
+			trail.trail_length = max(dist, 1.0)
+			var mid = firewall_route_start_pos + diff * 0.5
+			get_parent().add_child(trail)
+			trail.global_position = mid
+			if dist > 0.01:
+				trail.look_at(end_pos, Vector3.UP)
 
 	# Handle Rocket Lunge Movement (strongly committed lunge)
 	if is_rocket_lunging:
@@ -692,6 +740,25 @@ func activate_core_ability() -> void:
 		start_reactive_plating(ability)
 	elif effect_type == 15: # OVERWATCH_MATRIX (Shooter Core Position)
 		start_overwatch_matrix(ability)
+	elif effect_type == 18: # QUARANTINE_GATE
+		start_quarantine_gate(ability)
+
+func start_quarantine_gate(ability: AbilityData) -> void:
+	is_core_active = true
+	core_duration_timer = ability.duration
+	for child in get_parent().get_children():
+		if child is AptenQuarantineGate and child.owner_node == self:
+			child.queue_free()
+	var gate = load("res://scripts/apten_quarantine_gate.gd").new()
+	gate.owner_node = self
+	gate.duration = ability.duration
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	get_parent().add_child(gate)
+	gate.global_position = global_position + aim_dir * 1.5
+	gate.look_at(gate.global_position + aim_dir, Vector3.UP)
+
 
 func start_overwatch_matrix(ability: AbilityData) -> void:
 	is_core_active = true
@@ -928,6 +995,16 @@ func activate_arms_ability() -> void:
 			arms_cooldown_timer = ability.cooldown
 			execute_burst_volley(ability)
 			dispatched = true
+		AbilityData.EffectType.VECTOR_STRAFE:
+			current_energy -= ability.energy_cost
+			legs_cooldown_timer = ability.cooldown
+			start_vector_strafe(ability)
+			dispatched = true
+		AbilityData.EffectType.FIREWALL_ROUTE:
+			current_energy -= ability.energy_cost
+			legs_cooldown_timer = ability.cooldown
+			start_firewall_route(ability)
+			dispatched = true
 		AbilityData.EffectType.TWIN_STREAM:
 			current_energy -= ability.energy_cost
 			arms_cooldown_timer = ability.cooldown
@@ -947,6 +1024,11 @@ func activate_arms_ability() -> void:
 			current_energy -= ability.energy_cost
 			arms_cooldown_timer = ability.cooldown
 			execute_disruptor_round(ability)
+			dispatched = true
+		AbilityData.EffectType.KERNEL_PANIC:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			execute_kernel_panic(ability)
 			dispatched = true
 			
 	if not dispatched:
@@ -1174,6 +1256,43 @@ func execute_concussive_slam_hit(ability: AbilityData) -> void:
 			if collider.has_method("apply_stagger"):
 				collider.apply_stagger(ability.stagger_duration, self)
 
+func execute_kernel_panic(ability: AbilityData) -> void:
+	var execute_hit = func():
+		var space_state = get_world_3d().direct_space_state
+		var query = PhysicsShapeQueryParameters3D.new()
+		var sphere = SphereShape3D.new()
+		sphere.radius = 2.4
+		query.shape = sphere
+		query.transform = global_transform
+		query.exclude = [get_rid()]
+		query.collide_with_areas = true
+		query.collide_with_bodies = true
+		var results = space_state.intersect_shape(query)
+		for res in results:
+			var collider = res.collider
+			if is_instance_valid(collider) and collider.has_method("take_damage"):
+				var is_compromised = false
+				var ctrl = AptenStatusController.get_controller(collider)
+				if ctrl and ctrl.is_compromised_by(self):
+					is_compromised = true
+				var dmg = projectile_damage * ability.damage_multiplier
+				collider.take_damage(dmg, self, current_attack_event_id)
+				if collider.has_method("apply_stagger"):
+					collider.apply_stagger(1.0 if is_compromised else 0.5, self)
+				if collider.has_method("notify_interrupt"):
+					collider.notify_interrupt(self)
+				elif collider.has_method("interrupt_traversal"):
+					collider.interrupt_traversal()
+				if is_compromised:
+					ctrl.consume_compromised(self)
+	create_slam_visual(2.4)
+	if ability.windup_time > 0.0:
+		is_winding_up = true
+		windup_timer = ability.windup_time
+		get_tree().create_timer(ability.windup_time, false).timeout.connect(execute_hit)
+	else:
+		execute_hit.call()
+
 func create_slam_visual(radius: float) -> void:
 	var mesh_instance = MeshInstance3D.new()
 	var cylinder_mesh = CylinderMesh.new()
@@ -1317,6 +1436,13 @@ func activate_legs_ability() -> void:
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
 		start_vector_strafe(ability)
+	elif effect_type == 20: # FIREWALL_ROUTE
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
+		current_energy -= ability.energy_cost
+		legs_cooldown_timer = ability.cooldown
+		start_firewall_route(ability)
 
 func start_vector_strafe(ability: AbilityData) -> void:
 	is_legs_active = true
@@ -1334,6 +1460,19 @@ func start_vector_strafe(ability: AbilityData) -> void:
 		vector_strafe_direction = -aim_dir.normalized()
 		
 	update_mesh_color()
+
+func start_firewall_route(ability: AbilityData) -> void:
+	is_legs_active = true
+	is_firewall_routing = true
+	firewall_route_timer = ability.duration
+	firewall_route_speed = ability.ability_move_speed
+	firewall_route_start_pos = global_position
+	firewall_route_direction = -aim_pivot.global_transform.basis.z
+	var input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	if input_dir.length_squared() > 0.01:
+		firewall_route_direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	firewall_route_direction.y = 0.0
+	firewall_route_direction = firewall_route_direction.normalized()
 
 func create_anchor_marker(pos: Vector3) -> void:
 	vector_anchor_marker = MeshInstance3D.new()
@@ -1888,6 +2027,15 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 			if inside_range and inside_arc:
 				collider.take_damage(final_dmg, self, current_attack_event_id)
 				trigger_sync_event("melee_damage", final_dmg)
+				
+				var applied_stagger = attack_data.stagger_duration
+				if attack_data.id == "apten_daemon_hammer":
+					var ctrl = AptenStatusController.get_controller(collider)
+					if ctrl and ctrl.is_compromised_by(self):
+						applied_stagger = 1.0 # Enhanced stagger for Warden
+				if applied_stagger > 0.0 and collider.has_method("apply_stagger"):
+					collider.apply_stagger(applied_stagger, self)
+					
 				print("  Damage applied: ", final_dmg)
 			else:
 				print("  Damage applied: 0")
@@ -2037,11 +2185,17 @@ func create_melee_visual_custom(range_val: float, arc_deg: float, color: Color, 
 	tween.tween_callback(mesh_instance.queue_free)
 
 func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -> void:
+	if current_health <= 0.0:
+		return
+		
 	var flat_pen = source.get("flat_armor_penetration") if (source and source.get("flat_armor_penetration") != null) else 0.0
 	var pct_pen = source.get("percent_armor_penetration") if (source and source.get("percent_armor_penetration") != null) else 0.0
 	
 	var post_armor_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, armor, flat_pen, pct_pen)
 	var final_dmg = post_armor_dmg
+	
+	if final_dmg > 0.0 and is_instance_valid(apten_intrusion_tracker) and source:
+		apten_intrusion_tracker.register_hit(source, attack_event_id)
 	
 	# Apply Reactive Plating projectile mitigation (Tank Core)
 	if source and source.is_in_group("hostile_projectile"):
@@ -2341,6 +2495,3 @@ func _on_bastion_area_entered(other_area: Area3D) -> void:
 			
 		if bastion_charges <= 0:
 			end_protocol_special()
-
-
-
