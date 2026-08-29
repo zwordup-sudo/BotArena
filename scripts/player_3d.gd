@@ -195,7 +195,6 @@ var apten_intrusion_tracker: Node = null
 var apten_trace_daemon: Node = null
 var trace_daemon_speed_timer: float = 0.0
 var trace_daemon_speed_pct: float = 0.0
-const AptenStatusController = preload("res://scripts/apten_status_controller.gd")
 
 func _ready() -> void:
 	# Dynamically map protocol_special input to key F if not already registered
@@ -393,6 +392,13 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 		apten_trace_daemon = DaemonClass.new()
 		apten_trace_daemon.init_daemon(self)
 		add_child(apten_trace_daemon)
+		
+	if _chassis and _chassis.id == "apten_operator_chassis":
+		var CacheClass = load("res://scripts/apten_trace_cache.gd")
+		var cache = CacheClass.new()
+		cache.init_cache(self)
+		cache.name = "AptenTraceCache"
+		add_child(cache)
 	
 	recalculate_stats()
 	current_health = max_health
@@ -770,6 +776,28 @@ func activate_core_ability() -> void:
 		start_quarantine_gate(ability)
 	elif effect_type == 21: # BACKDOOR
 		execute_backdoor(ability)
+	elif effect_type == 24: # WATCHDOG_NODE
+		execute_watchdog_node(ability)
+
+func execute_watchdog_node(ability: AbilityData) -> void:
+	# Remove old watchdog if it exists
+	for child in get_parent().get_children():
+		if child is AptenWatchdogNode and child.owner_node == self:
+			child.queue_free()
+			
+	var node = load("res://scripts/apten_watchdog_node.gd").new()
+	node.owner_node = self
+	node.duration = ability.duration if ability.duration > 0.0 else 4.0
+	
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	if aim_dir.length_squared() > 0.01:
+		aim_dir = aim_dir.normalized()
+	else:
+		aim_dir = Vector3.FORWARD
+		
+	get_parent().add_child(node)
+	node.global_position = global_position + aim_dir * 5.0
 
 func execute_backdoor(ability: AbilityData) -> void:
 	var aim_dir = -aim_pivot.global_transform.basis.z
@@ -932,7 +960,7 @@ func _on_barrier_area_entered(area: Area3D) -> void:
 		area.set("is_consumed", true)
 		
 		if area.has_method("take_interception_damage"):
-			area.take_interception_damage(area.get("interception_durability") if area.get("interception_durability") != null else 1.0)
+			area.take_interception_damage((area.get("interception_durability") as float) if area.get("interception_durability") != null else 1.0)
 		else:
 			if not area.is_queued_for_deletion():
 				area.queue_free()
@@ -987,6 +1015,16 @@ func start_reactive_plating(ability: AbilityData) -> void:
 	reactive_plating_damage_multiplier = ability.projectile_damage_multiplier
 	update_mesh_color()
 
+func notify_damage_dealt(target: Node, _damage: float, event_id: int) -> void:
+	if is_instance_valid(apten_trace_daemon):
+		if apten_trace_daemon.has_method("on_damage_dealt"):
+			apten_trace_daemon.on_damage_dealt(target, event_id)
+			
+	var trace_cache = get_node_or_null("AptenTraceCache")
+	if is_instance_valid(trace_cache):
+		if trace_cache.has_method("on_damage_dealt"):
+			trace_cache.on_damage_dealt(target, event_id)
+
 func notify_kill(target: Node) -> void:
 	if execution_refresh_window_timer > 0.0 and not execution_refresh_triggered_this_activation:
 		core_cooldown_timer = 0.0
@@ -1004,10 +1042,10 @@ func notify_kill(target: Node) -> void:
 			special_duration_timer += 1.0
 			print("Execution Protocol extended by 1.0s!")
 
-func notify_stagger(target: Node) -> void:
+func notify_stagger(_target: Node) -> void:
 	trigger_sync_event("stagger")
 
-func notify_interrupt(target: Node) -> void:
+func notify_interrupt(_target: Node) -> void:
 	trigger_sync_event("interrupt")
 
 func generate_sync(amount: float) -> void:
@@ -1141,6 +1179,11 @@ func activate_arms_ability() -> void:
 			arms_cooldown_timer = ability.cooldown
 			execute_kernel_panic(ability)
 			dispatched = true
+		AbilityData.EffectType.ROUTE_HIJACK:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			execute_route_hijack(ability)
+			dispatched = true
 			
 	if not dispatched:
 		push_warning("Arms ability activation failed: Unsupported effect type: " + str(ability.effect_type))
@@ -1188,6 +1231,26 @@ func execute_injection_line(ability: AbilityData) -> void:
 	proj.damage = projectile_damage * ability.projectile_damage_multiplier
 	proj.speed = projectile_speed * 1.5
 	proj.custom_color = Color(1.0, 0.1, 0.8, 1.0)
+
+func execute_route_hijack(ability: AbilityData) -> void:
+	var proj_scene = load("res://scenes/apten_route_hijack_projectile.tscn")
+	var proj = proj_scene.instantiate()
+	proj.source_actor = self
+	proj.set("attack_event_id", current_attack_event_id)
+	
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+	if projectiles_node:
+		projectiles_node.add_child(proj)
+		
+	proj.global_position = muzzle.global_position
+	proj.direction = aim_dir
+	proj.damage = projectile_damage * ability.projectile_damage_multiplier
+	proj.speed = projectile_speed * ability.projectile_speed_multiplier
+	proj.custom_color = Color(0.8, 0.2, 1.0, 1.0)
 func execute_burst_volley(ability: AbilityData) -> void:
 	is_burst_volley_active = true
 	var count = ability.projectile_count
@@ -1583,6 +1646,50 @@ func activate_legs_ability() -> void:
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
 		execute_fault_step(ability)
+	elif effect_type == 26: # PROXY_STEP
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
+		current_energy -= ability.energy_cost
+		legs_cooldown_timer = ability.cooldown
+		execute_proxy_step(ability)
+
+func execute_proxy_step(ability: AbilityData) -> void:
+	var start_pos = global_position
+	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
+	if move_dir.length_squared() > 0.01:
+		move_dir = move_dir.normalized()
+	else:
+		move_dir = -aim_pivot.global_transform.basis.z
+		move_dir.y = 0.0
+		move_dir = move_dir.normalized()
+		
+	var node = load("res://scripts/apten_proxy_node.gd").new()
+	node.owner_node = self
+	get_parent().add_child(node)
+	node.global_position = start_pos
+	
+	# Move the player immediately
+	var space_state = get_world_3d().direct_space_state
+	var dist = ability.movement_distance if ability.movement_distance > 0.0 else 3.0
+	var target_pos = global_position + move_dir * dist
+	
+	var query = PhysicsRayQueryParameters3D.create(global_position, target_pos)
+	query.exclude = [get_rid()]
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		var hit_pos = result.position
+		var buffer = move_dir * 0.6
+		global_position = hit_pos - buffer
+	else:
+		global_position = target_pos
+		
+	create_blink_visual(1.5)
+	
+	if has_method("trigger_sync_event"):
+		trigger_sync_event("apten_proxy_step")
 
 func execute_fault_step(ability: AbilityData) -> void:
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -1608,7 +1715,6 @@ func execute_fault_step(ability: AbilityData) -> void:
 		parent.add_child(trail)
 		# Place trail midway between start and end
 		var start_pos = global_position
-		var end_pos = start_pos + move_dir * ability.movement_distance
 		trail.global_position = start_pos + move_dir * (ability.movement_distance / 2.0)
 		
 		# Rotate trail to point along the movement
@@ -2052,6 +2158,7 @@ func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
 		proj.direction = aim_dir
 		proj.damage = projectile_damage
 		proj.speed = projectile_speed
+		
 		if attack_data.optimal_range_threshold > 0.0:
 			proj.optimal_range_threshold = attack_data.optimal_range_threshold
 			proj.long_range_damage_multiplier = attack_data.long_range_damage_multiplier
@@ -2100,7 +2207,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	
 	if engage_rng > 0.0 and engage_dist > 0.0:
 		# Search for potential target inside engagement range & cone
-		var space_state = get_world_3d().direct_space_state
+		var engage_space_state = get_world_3d().direct_space_state
 		var eq = PhysicsShapeQueryParameters3D.new()
 		var esph = SphereShape3D.new()
 		esph.radius = engage_rng
@@ -2110,7 +2217,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 		eq.collide_with_areas = true
 		eq.collide_with_bodies = true
 		
-		var candidates = space_state.intersect_shape(eq)
+		var candidates = engage_space_state.intersect_shape(eq)
 		var best_target: Node3D = null
 		var best_dist: float = 999.0
 		
@@ -2217,7 +2324,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 			print("  Inside arc: ", inside_arc)
 			
 			if inside_range and inside_arc:
-				var target_armor = collider.get("armor") if collider.get("armor") != null else 0.0
+				var target_armor = (collider.get("armor") as float) if collider.get("armor") != null else 0.0
 				var flat_pen = flat_armor_penetration
 				var pct_pen = percent_armor_penetration
 				
@@ -2399,8 +2506,8 @@ func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -
 	if current_health <= 0.0:
 		return
 		
-	var flat_pen = source.get("flat_armor_penetration") if (source and source.get("flat_armor_penetration") != null) else 0.0
-	var pct_pen = source.get("percent_armor_penetration") if (source and source.get("percent_armor_penetration") != null) else 0.0
+	var flat_pen = (source.get("flat_armor_penetration") as float) if (source and source.get("flat_armor_penetration") != null) else 0.0
+	var pct_pen = (source.get("percent_armor_penetration") as float) if (source and source.get("percent_armor_penetration") != null) else 0.0
 	
 	var post_armor_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, armor, flat_pen, pct_pen)
 	var final_dmg = post_armor_dmg
@@ -2700,7 +2807,7 @@ func _on_bastion_area_entered(other_area: Area3D) -> void:
 			
 		# Consume the projectile cleanly
 		if other_area.has_method("take_interception_damage"):
-			other_area.take_interception_damage(other_area.get("interception_durability") if other_area.get("interception_durability") != null else 1.0)
+			other_area.take_interception_damage((other_area.get("interception_durability") as float) if other_area.get("interception_durability") != null else 1.0)
 		else:
 			other_area.queue_free()
 			

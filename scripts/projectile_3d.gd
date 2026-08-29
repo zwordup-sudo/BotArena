@@ -42,8 +42,8 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	
 	if source_actor:
-		flat_armor_penetration = source_actor.get("flat_armor_penetration") if source_actor.get("flat_armor_penetration") != null else 0.0
-		percent_armor_penetration = source_actor.get("percent_armor_penetration") if source_actor.get("percent_armor_penetration") != null else 0.0
+		flat_armor_penetration = float(source_actor.get("flat_armor_penetration")) if source_actor.get("flat_armor_penetration") != null else 0.0
+		percent_armor_penetration = float(source_actor.get("percent_armor_penetration")) if source_actor.get("percent_armor_penetration") != null else 0.0
 	
 	_apply_custom_visuals()
 	

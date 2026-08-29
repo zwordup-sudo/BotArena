@@ -23,7 +23,6 @@ func _on_body_entered(body: Node3D) -> void:
 
 func _handle_hit(target: Node) -> void:
 	is_consumed = true
-	var AptenStatusController = load("res://scripts/apten_status_controller.gd")
 	var ctrl = AptenStatusController.get_or_create(target)
 	
 	var is_compromised = false

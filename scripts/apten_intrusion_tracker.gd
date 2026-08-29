@@ -16,10 +16,10 @@ var owner_node: Node = null
 # }
 var track_data: Dictionary = {}
 
-func init_tracker(owner: Node) -> void:
-	owner_node = owner
+func init_tracker(owner_node_ref: Node) -> void:
+	owner_node = owner_node_ref
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	var current_time = Time.get_ticks_msec() / 1000.0
 	var keys = track_data.keys()
 	var expired = []
@@ -72,7 +72,6 @@ func _check_threshold(attacker_id: int) -> void:
 	if entry.hits.size() >= REQUIRED_HITS:
 		var attacker = entry.attacker_ref.get_ref()
 		if is_instance_valid(attacker):
-			var AptenStatusController = load("res://scripts/apten_status_controller.gd")
 			var ctrl = AptenStatusController.get_or_create(attacker)
 			if ctrl:
 				ctrl.apply_compromised(owner_node, 3.5)

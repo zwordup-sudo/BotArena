@@ -57,7 +57,6 @@ func _apply_fault_effect(target: Node) -> void:
 	hit_targets[tid] = true
 	
 	# Fault Line: mark + modest slow ONLY. NO stagger. NO traversal interruption.
-	var AptenStatusController = load("res://scripts/apten_status_controller.gd")
 	var ctrl = AptenStatusController.get_or_create(target)
 	if ctrl:
 		ctrl.apply_compromised(owner_node, 3.5)

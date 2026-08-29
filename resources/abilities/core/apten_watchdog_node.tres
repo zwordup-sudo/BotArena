@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_j54ic"]
+
+[resource]
+script = ExtResource("1_j54ic")
+id = "apten_watchdog_node"
+display_name = "Watchdog Node"
+energy_cost = 40.0
+cooldown = 12.0
+duration = 4.0
+effect_type = 24

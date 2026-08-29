@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_df7qu"]
+
+[resource]
+script = ExtResource("1_df7qu")
+id = "apten_route_hijack"
+display_name = "Route Hijack"
+energy_cost = 35.0
+cooldown = 7.0
+effect_type = 25
+projectile_damage_multiplier = 0.8
+projectile_speed_multiplier = 2.0

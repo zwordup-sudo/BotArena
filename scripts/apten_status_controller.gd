@@ -70,6 +70,13 @@ func get_compromised_remaining(source: Node) -> float:
 func refresh_compromised(source: Node, duration: float = 3.5) -> void:
 	# Same as apply in this implementation (refreshes duration, does not stack)
 	apply_compromised(source, duration)
+
+func extend_compromised(source: Node, amount: float, max_cap: float) -> void:
+	if not is_instance_valid(source): return
+	var id = source.get_instance_id()
+	if compromised_marks.has(id):
+		var mark = compromised_marks[id]
+		mark.time_left = min(mark.time_left + amount, max_cap)
 	
 func consume_compromised(source: Node) -> bool:
 	if not is_instance_valid(source): return false

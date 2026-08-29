@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_ce5yv"]
+[ext_resource type="Script" path="res://scripts/data/primary_attack_data.gd" id="2_tc20m"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="3_8k61s"]
+
+[ext_resource type="Resource" path="res://resources/attacks/apten/apten_packet_repeater.tres" id="4_attack"]
+
+[sub_resource type="Resource" id="Resource_qkdn3"]
+script = ExtResource("1_ce5yv")
+id = "apten_route_hijack"
+display_name = "Route Hijack"
+energy_cost = 35.0
+cooldown = 7.0
+effect_type = 25
+projectile_damage_multiplier = 0.8
+projectile_speed_multiplier = 2.0
+
+[resource]
+script = ExtResource("3_8k61s")
+id = "apten_operator_arms"
+display_name = "APTEN Operator Arms"
+slot = 2
+power_cost = 25.0
+weight_cost = 15.0
+thermal_load = 20.0
+active_ability = SubResource("Resource_qkdn3")
+primary_attack = ExtResource("4_attack")
+shooter_affinity = 2.0
+apten_affinity = 1.0

@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PrimaryAttackData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/primary_attack_data.gd" id="1_o6jkj"]
+[ext_resource type="PackedScene" path="res://scenes/apten_packet_repeater_projectile.tscn" id="2_proj"]
+
+[resource]
+script = ExtResource("1_o6jkj")
+id = "apten_packet_repeater"
+display_name = "Packet Repeater"
+attack_type = 0
+projectile_scene = ExtResource("2_proj")
+can_hold_to_attack = true
+melee_range = 0.0
+melee_arc_degrees = 0.0
+damage_multiplier = 1.0
+attack_rate_multiplier = 1.0
+engage_range = 0.0
+engage_distance = 0.0
+engage_cone_degrees = 0.0
+combo_multipliers = []
+combo_reset_time = 0.0
+projectile_interception_limit = 0
+projectile_interception_power = 0
+projectile_interception_range = 0.0
+projectile_interception_window = 0.0
+projectile_interception_arc_degrees = 0.0
+impact_range = 0.0
+impact_width = 0.0
+windup_time = 0.0
+stagger_duration = 0.0
+can_interrupt = false
+optimal_range_threshold = 0.0
+long_range_damage_multiplier = 1.0
+close_interception_power = 0.0
+optimal_interception_power = 0.0

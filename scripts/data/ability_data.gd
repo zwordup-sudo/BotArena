@@ -25,7 +25,10 @@ enum EffectType {
 	FIREWALL_ROUTE,
 	BACKDOOR,
 	INJECTION_LINE,
-	FAULT_STEP
+	FAULT_STEP,
+	WATCHDOG_NODE,
+	ROUTE_HIJACK,
+	PROXY_STEP
 }
 
 @export var id: String = ""

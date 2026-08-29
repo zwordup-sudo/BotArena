@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_mexfu"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_5cdbd"]
+
+[sub_resource type="Resource" id="Resource_b7ru2"]
+script = ExtResource("1_mexfu")
+id = "apten_watchdog_node"
+display_name = "Watchdog Node"
+energy_cost = 40.0
+cooldown = 12.0
+duration = 4.0
+effect_type = 24
+
+[resource]
+script = ExtResource("2_5cdbd")
+id = "apten_operator_core"
+display_name = "APTEN Operator Core"
+power_cost = 25.0
+weight_cost = 15.0
+thermal_load = 15.0
+active_ability = SubResource("Resource_b7ru2")
+shooter_affinity = 2.0
+apten_affinity = 1.0
+armor = 2.0

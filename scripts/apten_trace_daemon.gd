@@ -11,10 +11,10 @@ var owner_node: Node = null
 # { target_instance_id: int -> last_hit_time: float }
 var hit_history: Dictionary = {}
 
-func init_daemon(owner: Node) -> void:
-	owner_node = owner
+func init_daemon(owner_node_ref: Node) -> void:
+	owner_node = owner_node_ref
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	# Prune history for invalid instances if needed
 	pass
 
@@ -30,7 +30,6 @@ func on_damage_dealt(target: Node, attack_event_id: int) -> void:
 	
 	# If disengaged long enough, proc Trace Daemon
 	if current_time - last_hit >= DISENGAGE_WINDOW:
-		var AptenStatusController = load("res://scripts/apten_status_controller.gd")
 		var ctrl = AptenStatusController.get_or_create(target)
 		if ctrl:
 			ctrl.apply_compromised(owner_node, 3.5)
