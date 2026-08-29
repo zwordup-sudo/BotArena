@@ -33,6 +33,11 @@ const APTEN_WARDEN_CHASSIS = preload("res://resources/parts/apten/tank/apten_war
 const APTEN_WARDEN_ARMS = preload("res://resources/parts/apten/tank/apten_warden_arms.tres")
 const APTEN_WARDEN_LEGS = preload("res://resources/parts/apten/tank/apten_warden_legs.tres")
 
+const APTEN_BREACHER_CORE = preload("res://resources/parts/apten/assassin/apten_breacher_core.tres")
+const APTEN_BREACHER_CHASSIS = preload("res://resources/parts/apten/assassin/apten_breacher_chassis.tres")
+const APTEN_BREACHER_ARMS = preload("res://resources/parts/apten/assassin/apten_breacher_arms.tres")
+const APTEN_BREACHER_LEGS = preload("res://resources/parts/apten/assassin/apten_breacher_legs.tres")
+
 const TANK_PROTO = preload("res://resources/protocols/lab/tank_protocol_test.tres")
 const ASSASSIN_PROTO = preload("res://resources/protocols/lab/assassin_protocol_test.tres")
 const SHOOTER_PROTO = preload("res://resources/protocols/lab/shooter_protocol_test.tres")
@@ -41,10 +46,10 @@ const UNIVERSAL_PROTO = preload("res://resources/protocols/lab/universal_protoco
 const BATTLE_TANK_PROTO = preload("res://resources/protocols/lab/battle_tank_protocol_test.tres")
 const SKIRMISHER_PROTO = preload("res://resources/protocols/lab/skirmisher_protocol_test.tres")
 
-@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE, APTEN_WARDEN_CORE]
-@onready var chassis_list = [STANDARD_CHASSIS, TANK_TEST_CHASSIS, ASSASSIN_TEST_CHASSIS, SHOOTER_TEST_CHASSIS, APTEN_WARDEN_CHASSIS]
-@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS, APTEN_WARDEN_ARMS]
-@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS, APTEN_WARDEN_LEGS]
+@onready var core_list = [STANDARD_CORE, LIGHT_CORE, HEAVY_CORE, ASSASSIN_TEST_CORE, TANK_TEST_CORE, SHOOTER_TEST_CORE, APTEN_WARDEN_CORE, APTEN_BREACHER_CORE]
+@onready var chassis_list = [STANDARD_CHASSIS, TANK_TEST_CHASSIS, ASSASSIN_TEST_CHASSIS, SHOOTER_TEST_CHASSIS, APTEN_WARDEN_CHASSIS, APTEN_BREACHER_CHASSIS]
+@onready var arms_list = [STANDARD_ARMS, RAPID_ARMS, HEAVY_ARMS, MELEE_TEST_ARMS, ASSASSIN_TEST_ARMS, TANK_TEST_ARMS, SHOOTER_TEST_ARMS, APTEN_WARDEN_ARMS, APTEN_BREACHER_ARMS]
+@onready var legs_list = [STANDARD_LEGS, LIGHT_LEGS, HEAVY_LEGS, ASSASSIN_TEST_LEGS, TANK_TEST_LEGS, SHOOTER_TEST_LEGS, APTEN_WARDEN_LEGS, APTEN_BREACHER_LEGS]
 @onready var protocol_list = [null, UNIVERSAL_PROTO, TANK_PROTO, ASSASSIN_PROTO, SHOOTER_PROTO, FIGHTER_PROTO, BATTLE_TANK_PROTO, SKIRMISHER_PROTO]
 
 @onready var core_selector: OptionButton = $MarginContainer/VBoxContainer/ScrollContainer/ScrollContent/CoreContainer/CoreSelector
@@ -183,6 +188,8 @@ func update_build_and_preview() -> void:
 		build_name = "SCOUT"
 	elif c_idx == 2 and ch_idx == 0 and a_idx == 2 and l_idx == 2:
 		build_name = "HEAVY"
+	elif c_idx == core_list.find(APTEN_BREACHER_CORE) and ch_idx == chassis_list.find(APTEN_BREACHER_CHASSIS) and a_idx == arms_list.find(APTEN_BREACHER_ARMS) and l_idx == legs_list.find(APTEN_BREACHER_LEGS):
+		build_name = "APTEN BREACHER"
 		
 	# Call Calculator to get final effective stats after overload penalties
 	var calc = load("res://scripts/data/bot_stat_calculator.gd").calculate(current_build)

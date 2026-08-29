@@ -72,8 +72,11 @@ func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -
 	current_health = clamp(current_health - final_dmg, 0.0, max_health)
 	print(name, " remaining health: ", int(current_health))
 	
-	if actual_damage > 0.0 and source and source.has_method("trigger_sync_event"):
-		source.trigger_sync_event("effective_damage", actual_damage)
+	if actual_damage > 0.0 and source:
+		if source.has_method("trigger_sync_event"):
+			source.trigger_sync_event("effective_damage", actual_damage)
+		if source.has_method("notify_damage_dealt"):
+			source.notify_damage_dealt(self, actual_damage, attack_event_id)
 		
 	if current_health <= 0.0:
 		if source and source.has_method("notify_kill"):

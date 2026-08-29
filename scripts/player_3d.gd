@@ -192,6 +192,9 @@ var current_combo_index: int = 0
 var last_attack_time: float = -999.0
 var current_attack_event_id: int = 0
 var apten_intrusion_tracker: Node = null
+var apten_trace_daemon: Node = null
+var trace_daemon_speed_timer: float = 0.0
+var trace_daemon_speed_pct: float = 0.0
 const AptenStatusController = preload("res://scripts/apten_status_controller.gd")
 
 func _ready() -> void:
@@ -227,13 +230,18 @@ func _ready() -> void:
 			bot_build = BALANCED_BUILD
 		apply_build(bot_build, "BALANCED")
 
+func apply_trace_daemon_buff(pct: float, duration: float) -> void:
+	trace_daemon_speed_pct = pct
+	trace_daemon_speed_timer = duration
+	recalculate_stats()
+
 func recalculate_stats() -> void:
 	if bot_build:
 		var calc = load("res://scripts/data/bot_stat_calculator.gd").calculate(bot_build)
 		max_health = calc.max_health
 		
 		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp + Overwatch Matrix
-		var speed_mod = core_temp_speed_mod + overwatch_movement_speed_modifier
+		var speed_mod = core_temp_speed_mod + overwatch_movement_speed_modifier + trace_daemon_speed_pct
 		if is_special_active and current_special_ability_data:
 			if current_special_ability_data.id == "unstoppable_drive" or current_special_ability_data.id == "skirmisher_momentum_shift":
 				speed_mod += 0.10
@@ -366,6 +374,12 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 		apten_intrusion_tracker.queue_free()
 	apten_intrusion_tracker = null
 	
+	if is_instance_valid(apten_trace_daemon):
+		apten_trace_daemon.queue_free()
+	apten_trace_daemon = null
+	trace_daemon_speed_timer = 0.0
+	trace_daemon_speed_pct = 0.0
+	
 	# Attach a fresh tracker only when the Warden Chassis is in the build.
 	var _chassis = new_build.get_chassis() if new_build else null
 	if _chassis and _chassis.id == "apten_warden_chassis":
@@ -373,6 +387,12 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 		apten_intrusion_tracker = TrackerClass.new()
 		apten_intrusion_tracker.init_tracker(self)
 		add_child(apten_intrusion_tracker)
+		
+	if _chassis and _chassis.id == "apten_breacher_chassis":
+		var DaemonClass = load("res://scripts/apten_trace_daemon.gd")
+		apten_trace_daemon = DaemonClass.new()
+		apten_trace_daemon.init_daemon(self)
+		add_child(apten_trace_daemon)
 	
 	recalculate_stats()
 	current_health = max_health
@@ -596,6 +616,12 @@ func _process(delta: float) -> void:
 	# Energy Regeneration
 	current_energy = clamp(current_energy + energy_regen_per_second * delta, 0.0, max_energy)
 	
+	if trace_daemon_speed_timer > 0.0:
+		trace_daemon_speed_timer -= delta
+		if trace_daemon_speed_timer <= 0.0:
+			trace_daemon_speed_pct = 0.0
+			recalculate_stats()
+	
 	# Independent Core Ability Cooldown and Duration tracking
 	if core_cooldown_timer > 0.0:
 		core_cooldown_timer -= delta
@@ -742,6 +768,86 @@ func activate_core_ability() -> void:
 		start_overwatch_matrix(ability)
 	elif effect_type == 18: # QUARANTINE_GATE
 		start_quarantine_gate(ability)
+	elif effect_type == 21: # BACKDOOR
+		execute_backdoor(ability)
+
+func execute_backdoor(ability: AbilityData) -> void:
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	if aim_dir.length_squared() > 0.01:
+		aim_dir = aim_dir.normalized()
+	else:
+		aim_dir = Vector3.FORWARD
+		
+	var best_target = null
+	var best_dot = -1.0
+	
+	var space_state = get_world_3d().direct_space_state
+	var hostiles = get_tree().get_nodes_in_group("hostiles")
+	
+	for h in hostiles:
+		if h == self or not is_instance_valid(h): continue
+		if h.has_method("take_damage"):
+			# Check Compromised
+			var ctrl = AptenStatusController.get_controller(h)
+			if ctrl and ctrl.is_compromised_by(self):
+				var diff = h.global_position - global_position
+				diff.y = 0.0
+				var dist = diff.length()
+				if dist <= 4.5:
+					var dir_to_h = diff.normalized()
+					var dot = aim_dir.dot(dir_to_h)
+					if dot >= 0.707: # ~45 degrees
+						if dot > best_dot:
+							best_dot = dot
+							best_target = h
+							
+	if best_target:
+		# EXPLOIT: Discrete Relocation
+		var target_diff = best_target.global_position - global_position
+		target_diff.y = 0.0
+		var target_dir = target_diff.normalized()
+		var candidate_pos = best_target.global_position + target_dir * 1.5
+		
+		# Validation: Shapecast at candidate pos
+		var query = PhysicsShapeQueryParameters3D.new()
+		var sphere = SphereShape3D.new()
+		sphere.radius = 0.5
+		query.shape = sphere
+		query.transform = Transform3D(Basis(), candidate_pos)
+		query.collision_mask = 1 # Environment/Walls
+		var result = space_state.intersect_shape(query)
+		
+		if result.is_empty():
+			# Safe!
+			global_position = candidate_pos
+			var ctrl = AptenStatusController.get_controller(best_target)
+			if ctrl:
+				ctrl.consume_compromised(self)
+			create_blink_visual(1.5)
+			if has_method("trigger_sync_event"):
+				trigger_sync_event("apten_backdoor_exploit")
+			return
+		else:
+			print("Backdoor destination blocked!")
+			
+	# NORMAL BEHAVIOR: short dash
+	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
+	if move_dir.length_squared() > 0.01:
+		aim_dir = move_dir.normalized()
+		
+	var target_pos = global_position + aim_dir * ability.movement_distance
+	var query_ray = PhysicsRayQueryParameters3D.create(global_position, target_pos)
+	query_ray.exclude = [get_rid()]
+	var res = space_state.intersect_ray(query_ray)
+	if res:
+		var buffer = aim_dir * 0.5
+		global_position = res.position - buffer
+	else:
+		global_position = target_pos
+		
+	create_blink_visual(1.5)
 
 func start_quarantine_gate(ability: AbilityData) -> void:
 	is_core_active = true
@@ -1010,6 +1116,11 @@ func activate_arms_ability() -> void:
 			arms_cooldown_timer = ability.cooldown
 			start_arms_twin_stream(ability)
 			dispatched = true
+		AbilityData.EffectType.INJECTION_LINE:
+			current_energy -= ability.energy_cost
+			arms_cooldown_timer = ability.cooldown
+			execute_injection_line(ability)
+			dispatched = true
 		AbilityData.EffectType.CHARGED_SHOT:
 			current_energy -= ability.energy_cost
 			arms_cooldown_timer = ability.cooldown
@@ -1054,7 +1165,29 @@ func execute_disruptor_round(ability: AbilityData) -> void:
 	proj.global_position = muzzle.global_position
 	proj.direction = aim_dir
 	print("Fired Disruptor Round! Damage: ", proj.damage, " Speed: ", proj.speed, " Stagger: ", proj.stagger_duration)
-
+func execute_injection_line(ability: AbilityData) -> void:
+	var aim_dir = -aim_pivot.global_transform.basis.z
+	aim_dir.y = 0.0
+	aim_dir = aim_dir.normalized()
+	
+	var proj_scene = load("res://scenes/apten_injection_line_projectile.tscn")
+	if not proj_scene:
+		print("ERROR: Injection line scene not found. Make sure to create it!")
+		return
+		
+	var proj = proj_scene.instantiate()
+	proj.source_actor = self
+	proj.set("attack_event_id", current_attack_event_id)
+	
+	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
+	if projectiles_node:
+		projectiles_node.add_child(proj)
+		
+	proj.global_position = muzzle.global_position
+	proj.direction = aim_dir
+	proj.damage = projectile_damage * ability.projectile_damage_multiplier
+	proj.speed = projectile_speed * 1.5
+	proj.custom_color = Color(1.0, 0.1, 0.8, 1.0)
 func execute_burst_volley(ability: AbilityData) -> void:
 	is_burst_volley_active = true
 	var count = ability.projectile_count
@@ -1443,6 +1576,65 @@ func activate_legs_ability() -> void:
 		current_energy -= ability.energy_cost
 		legs_cooldown_timer = ability.cooldown
 		start_firewall_route(ability)
+	elif effect_type == 23: # FAULT_STEP
+		if legs_cooldown_timer > 0.0: return
+		if current_energy < ability.energy_cost: return
+		
+		current_energy -= ability.energy_cost
+		legs_cooldown_timer = ability.cooldown
+		execute_fault_step(ability)
+
+func execute_fault_step(ability: AbilityData) -> void:
+	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var move_dir := Vector3(input_dir.x, 0.0, input_dir.y)
+	if move_dir.length_squared() > 0.01:
+		move_dir = move_dir.normalized()
+	else:
+		move_dir = -aim_pivot.global_transform.basis.z
+		move_dir.y = 0.0
+		move_dir = move_dir.normalized()
+		
+	is_legs_active = true
+	legs_duration_timer = ability.duration
+	
+	var FaultLineTrail = load("res://scripts/apten_fault_line_trail.gd")
+	var trail = FaultLineTrail.new()
+	trail.owner_node = self
+	trail.duration = 2.0
+	trail.trail_length = ability.movement_distance
+	
+	var parent = get_parent()
+	if parent:
+		parent.add_child(trail)
+		# Place trail midway between start and end
+		var start_pos = global_position
+		var end_pos = start_pos + move_dir * ability.movement_distance
+		trail.global_position = start_pos + move_dir * (ability.movement_distance / 2.0)
+		
+		# Rotate trail to point along the movement
+		var look_target = trail.global_position + move_dir
+		if look_target.distance_to(trail.global_position) > 0.01:
+			trail.look_at(look_target, Vector3.UP)
+			
+	# Move the player immediately (similar to Recoil Step but forward/directional dash)
+	var space_state = get_world_3d().direct_space_state
+	var target_pos = global_position + move_dir * ability.movement_distance
+	
+	var query = PhysicsRayQueryParameters3D.create(global_position, target_pos)
+	query.exclude = [get_rid()]
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		var hit_pos = result.position
+		var buffer = move_dir * 0.6
+		global_position = hit_pos - buffer
+	else:
+		global_position = target_pos
+		
+	create_blink_visual(1.5)
+	
+	if has_method("trigger_sync_event"):
+		trigger_sync_event("apten_fault_step")
 
 func start_vector_strafe(ability: AbilityData) -> void:
 	is_legs_active = true
@@ -1963,9 +2155,9 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	query.collide_with_bodies = true
 	
 	var results = space_state.intersect_shape(query)
-	var final_dmg = projectile_damage * dmg_mult
+	var raw_damage = projectile_damage * dmg_mult
 	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
-		final_dmg *= 1.10
+		raw_damage *= 1.10
 	
 	# Process combo indexing
 	var now = Time.get_ticks_msec() / 1000.0
@@ -1989,7 +2181,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 		current_combo_index = (current_combo_index + 1) % combo_mults.size()
 		last_attack_time = now
 		
-		final_dmg = final_dmg * current_mult
+		raw_damage = raw_damage * current_mult
 		
 		# For third hit finisher, create a brighter and slightly longer visual sweep
 		if is_finisher:
@@ -2002,7 +2194,7 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 	print("\n--- MELEE SWING ---")
 	print("Candidates found: ", results.size())
 	if reset_time > 0.0:
-		print("Combo index executed: ", current_combo_index, " (Multiplier: ", final_dmg / (projectile_damage * dmg_mult), ")")
+		print("Combo index executed: ", current_combo_index, " (Multiplier: ", raw_damage / (projectile_damage * dmg_mult), ")")
 	
 	for res in results:
 		var collider = res.collider
@@ -2025,7 +2217,26 @@ func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
 			print("  Inside arc: ", inside_arc)
 			
 			if inside_range and inside_arc:
-				collider.take_damage(final_dmg, self, current_attack_event_id)
+				var target_armor = collider.get("armor") if collider.get("armor") != null else 0.0
+				var flat_pen = flat_armor_penetration
+				var pct_pen = percent_armor_penetration
+				
+				# BREACH BLADES: check if target is compromised
+				if attack_data.id == "apten_breach_blades":
+					var ctrl = AptenStatusController.get_controller(collider)
+					if ctrl and ctrl.is_compromised_by(self):
+						flat_pen += 3.0 # Extra prototype penetration against compromised targets
+						pct_pen += 0.20
+						
+				# 1. Calculate effective final damage using centralized formula
+				var final_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(raw_damage, target_armor, flat_pen, pct_pen)
+				
+				# 2. To avoid take_damage applying armor a second time, we must pass the inverse-armored damage.
+				var default_eff_armor = max(0.0, target_armor - flat_armor_penetration)
+				default_eff_armor = default_eff_armor * (1.0 - clamp(percent_armor_penetration, 0.0, 1.0))
+				var pre_armored_raw = final_dmg * (100.0 + default_eff_armor) / 100.0
+				
+				collider.take_damage(pre_armored_raw, self, current_attack_event_id)
 				trigger_sync_event("melee_damage", final_dmg)
 				
 				var applied_stagger = attack_data.stagger_duration

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_cypnr"]
+
+[resource]
+script = ExtResource("1_cypnr")
+id = "apten_breacher_chassis"
+display_name = "APTEN Breacher Chassis"
+slot = 1
+system = "APTEN"
+max_health_pct = -0.1
+power_cost = 22.0
+weight_cost = 18.0
+thermal_load = 15.0
+assassin_affinity = 2.0
+apten_affinity = 1.0
+armor = 2.0

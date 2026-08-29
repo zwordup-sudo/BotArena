@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_mr40c"]
+
+[resource]
+script = ExtResource("1_mr40c")
+id = "apten_injection_line"
+display_name = "Injection Line"
+description = "Fires a fast packet. Applies COMPROMISED. If target is already COMPROMISED, pulls them and consumes mark."
+energy_cost = 35.0
+cooldown = 7.0
+effect_type = 22
+projectile_damage_multiplier = 0.5

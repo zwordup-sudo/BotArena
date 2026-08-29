@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_highi"]
+[ext_resource type="Script" path="res://scripts/data/primary_attack_data.gd" id="2_cdija"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="3_rgdwx"]
+
+[sub_resource type="Resource" id="Resource_pdfak"]
+script = ExtResource("1_highi")
+id = "apten_injection_line"
+display_name = "Injection Line"
+description = "Fires a fast packet. Applies COMPROMISED. If target is already COMPROMISED, pulls them and consumes mark."
+energy_cost = 35.0
+cooldown = 7.0
+effect_type = 22
+projectile_damage_multiplier = 0.5
+
+[sub_resource type="Resource" id="Resource_mqqox"]
+script = ExtResource("2_cdija")
+id = "apten_breach_blades"
+display_name = "Breach Blades"
+attack_type = 1
+melee_range = 2.3
+melee_arc_degrees = 90.0
+damage_multiplier = 1.1
+attack_rate_multiplier = 1.2
+
+[resource]
+script = ExtResource("3_rgdwx")
+id = "apten_breacher_arms"
+display_name = "APTEN Breacher Arms"
+slot = 2
+system = "APTEN"
+power_cost = 24.0
+weight_cost = 14.0
+thermal_load = 12.0
+active_ability = SubResource("Resource_pdfak")
+primary_attack = SubResource("Resource_mqqox")
+assassin_affinity = 2.0
+apten_affinity = 1.0
+armor = 1.0
+flat_armor_penetration = 3.0
+percent_armor_penetration = 0.15

@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_t0s70"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_0gyfd"]
+
+[sub_resource type="Resource" id="Resource_heisg"]
+script = ExtResource("1_t0s70")
+id = "apten_fault_step"
+display_name = "Fault Step"
+description = "Short lateral dash that leaves a Fault Line trail. Crossing it slows and COMPROMISES."
+energy_cost = 30.0
+cooldown = 6.0
+duration = 0.2
+effect_type = 23
+movement_distance = 3.0
+ability_move_speed = 18.0
+
+[resource]
+script = ExtResource("2_0gyfd")
+id = "apten_breacher_legs"
+display_name = "APTEN Breacher Legs"
+slot = 3
+system = "APTEN"
+power_cost = 18.0
+weight_cost = 14.0
+thermal_load = 12.0
+active_ability = SubResource("Resource_heisg")
+assassin_affinity = 2.0
+apten_affinity = 1.0
+armor = 1.0

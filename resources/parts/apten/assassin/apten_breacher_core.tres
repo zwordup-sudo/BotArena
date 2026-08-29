@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_5hihk"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_t51t1"]
+
+[sub_resource type="Resource" id="Resource_nlcmb"]
+script = ExtResource("1_5hihk")
+id = "apten_backdoor"
+display_name = "Backdoor"
+description = "Exploits a COMPROMISED target to teleport behind them. Otherwise, performs a short dash."
+energy_cost = 35.0
+cooldown = 7.0
+effect_type = 21
+movement_distance = 2.5
+
+[resource]
+script = ExtResource("2_t51t1")
+id = "apten_breacher_core"
+display_name = "APTEN Breacher Core"
+system = "APTEN"
+max_health_pct = -0.05
+power_cost = 22.0
+weight_cost = 15.0
+thermal_load = 15.0
+active_ability = SubResource("Resource_nlcmb")
+assassin_affinity = 2.0
+apten_affinity = 1.0

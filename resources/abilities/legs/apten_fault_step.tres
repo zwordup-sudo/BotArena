@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ability_data.gd" id="1_bskam"]
+
+[resource]
+script = ExtResource("1_bskam")
+id = "apten_fault_step"
+display_name = "Fault Step"
+description = "Short lateral dash that leaves a Fault Line trail. Crossing it slows and COMPROMISES."
+energy_cost = 30.0
+cooldown = 6.0
+duration = 0.2
+effect_type = 23
+movement_distance = 3.0
+ability_move_speed = 18.0
