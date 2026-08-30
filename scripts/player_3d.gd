@@ -191,9 +191,7 @@ var current_build_name: String = "BALANCED"
 var current_combo_index: int = 0
 var last_attack_time: float = -999.0
 var current_attack_event_id: int = 0
-var apten_intrusion_tracker: Node = null
-var apten_trace_daemon: Node = null
-var apten_trace_cache: Node = null
+var chassis_passive_runtime: Node = null
 var trace_daemon_speed_timer: float = 0.0
 var trace_daemon_speed_pct: float = 0.0
 
@@ -204,6 +202,11 @@ func _ready() -> void:
 		var event = InputEventKey.new()
 		event.physical_keycode = KEY_F
 		InputMap.action_add_event("protocol_special", event)
+
+	var RuntimeClass = load("res://scripts/runtime/chassis_passive_runtime.gd")
+	chassis_passive_runtime = RuntimeClass.new()
+	chassis_passive_runtime.name = "ChassisPassiveRuntime"
+	add_child(chassis_passive_runtime)
 
 	# Load existing selection from autoload GameSession if available
 	var saved_build = null
@@ -370,43 +373,14 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	
 	# -- APTEN Intrusion Tracker lifecycle --
 	# Always tear down first so no stale attacker history survives a build swap.
-	if is_instance_valid(apten_intrusion_tracker):
-		apten_intrusion_tracker.queue_free()
-	apten_intrusion_tracker = null
-	
-	if is_instance_valid(apten_trace_daemon):
-		apten_trace_daemon.queue_free()
-	apten_trace_daemon = null
+
 	trace_daemon_speed_timer = 0.0
 	trace_daemon_speed_pct = 0.0
 	
-	# Attach a fresh tracker only when the Warden Chassis is in the build.
+	# Configure Chassis Passive Runtime
 	var _chassis = new_build.get_chassis() if new_build else null
-	if _chassis and _chassis.id == "apten_warden_chassis":
-		var TrackerClass = load("res://scripts/apten_intrusion_tracker.gd")
-		apten_intrusion_tracker = TrackerClass.new()
-		apten_intrusion_tracker.init_tracker(self)
-		add_child(apten_intrusion_tracker)
-		
-	if _chassis and _chassis.id == "apten_breacher_chassis":
-		var DaemonClass = load("res://scripts/apten_trace_daemon.gd")
-		apten_trace_daemon = DaemonClass.new()
-		apten_trace_daemon.init_daemon(self)
-		add_child(apten_trace_daemon)
-		
-	if is_instance_valid(apten_trace_cache):
-		apten_trace_cache.set_process(false)
-		if apten_trace_cache.get_parent():
-			apten_trace_cache.get_parent().remove_child(apten_trace_cache)
-		apten_trace_cache.queue_free()
-	apten_trace_cache = null
-	
-	if _chassis and _chassis.id == "apten_operator_chassis":
-		var CacheClass = load("res://scripts/apten_trace_cache.gd")
-		apten_trace_cache = CacheClass.new()
-		apten_trace_cache.init_cache(self)
-		apten_trace_cache.name = "AptenTraceCache"
-		add_child(apten_trace_cache)
+	if chassis_passive_runtime:
+		chassis_passive_runtime.configure(_chassis, self)
 	
 	recalculate_stats()
 	current_health = max_health
@@ -1024,13 +998,8 @@ func start_reactive_plating(ability: AbilityData) -> void:
 	update_mesh_color()
 
 func notify_damage_dealt(target: Node, _damage: float, event_id: int) -> void:
-	if is_instance_valid(apten_trace_daemon):
-		if apten_trace_daemon.has_method("on_damage_dealt"):
-			apten_trace_daemon.on_damage_dealt(target, event_id)
-			
-	if is_instance_valid(apten_trace_cache):
-		if apten_trace_cache.has_method("on_damage_dealt"):
-			apten_trace_cache.on_damage_dealt(target, event_id)
+	if is_instance_valid(chassis_passive_runtime):
+		chassis_passive_runtime.on_damage_dealt(target, _damage, event_id)
 
 func notify_kill(target: Node) -> void:
 	if execution_refresh_window_timer > 0.0 and not execution_refresh_triggered_this_activation:
@@ -2519,14 +2488,8 @@ func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -
 	var post_armor_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, armor, flat_pen, pct_pen)
 	var final_dmg = post_armor_dmg
 	
-	var intrusion_attacker = source
-	if source and source.get("source_actor") != null:
-		var projectile_owner = source.get("source_actor")
-		if is_instance_valid(projectile_owner):
-			intrusion_attacker = projectile_owner
-
-	if final_dmg > 0.0 and is_instance_valid(apten_intrusion_tracker) and intrusion_attacker:
-		apten_intrusion_tracker.register_hit(intrusion_attacker, attack_event_id)
+	if is_instance_valid(chassis_passive_runtime):
+		chassis_passive_runtime.on_damage_taken(source, final_dmg, attack_event_id)
 	
 	# Apply Reactive Plating projectile mitigation (Tank Core)
 	if source and source.is_in_group("hostile_projectile"):

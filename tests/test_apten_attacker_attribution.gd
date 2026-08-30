@@ -13,7 +13,7 @@ func run_test() -> bool:
 	player.apply_build(bot_build, "TEST")
 	await get_tree().process_frame
 	
-	var tracker = player.apten_intrusion_tracker
+	var tracker = player.chassis_passive_runtime.current_passive
 	if not tracker:
 		print("FAILED: No tracker initialized")
 		return false

@@ -15,11 +15,11 @@ func run_test() -> bool:
 	player.apply_build(op_build, "TEST")
 	await get_tree().process_frame
 	
-	if not player.apten_trace_cache:
+	if not (player.chassis_passive_runtime.current_passive and player.chassis_passive_runtime.current_passive.name == "AptenTraceCache"):
 		print("FAILED: No trace cache after applying Operator")
 		return false
 		
-	var cache_node1 = player.get_node_or_null("AptenTraceCache")
+	var cache_node1 = player.chassis_passive_runtime.get_node_or_null("AptenTraceCache")
 	if not cache_node1:
 		print("FAILED: Trace cache node not found in tree")
 		return false
@@ -27,7 +27,7 @@ func run_test() -> bool:
 	player.apply_build(war_build, "TEST")
 	await get_tree().process_frame
 	
-	if player.apten_trace_cache:
+	if player.chassis_passive_runtime.current_passive and player.chassis_passive_runtime.current_passive.name == "AptenTraceCache":
 		print("FAILED: Trace cache reference not null after applying Warden")
 		return false
 		
@@ -35,7 +35,7 @@ func run_test() -> bool:
 		print("FAILED: Trace cache node still active in tree")
 		return false
 		
-	if not player.apten_intrusion_tracker:
+	if not (player.chassis_passive_runtime.current_passive and player.chassis_passive_runtime.current_passive.name == "AptenIntrusionTracker"):
 		print("FAILED: Warden didn't create intrusion tracker")
 		return false
 		
@@ -43,7 +43,7 @@ func run_test() -> bool:
 	await get_tree().process_frame
 	
 	var caches = []
-	for child in player.get_children():
+	for child in player.chassis_passive_runtime.get_children():
 		if child.name == "AptenTraceCache" and not child.is_queued_for_deletion():
 			caches.append(child)
 			
