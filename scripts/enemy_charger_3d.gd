@@ -24,8 +24,14 @@ var is_dead: bool = false
 
 var normal_material: StandardMaterial3D
 var telegraph_material: StandardMaterial3D
-
+var movement_modifier: MovementModifier
 func _ready() -> void:
+	add_to_group("enemies")
+	
+	movement_modifier = MovementModifier.new()
+	movement_modifier.name = "MovementModifier"
+	add_child(movement_modifier)
+	
 	# Define materials dynamically for reliable colors and flashing
 	normal_material = StandardMaterial3D.new()
 	normal_material.albedo_color = Color(0.0, 0.8, 0.8, 1) # teal
@@ -38,6 +44,10 @@ func _ready() -> void:
 	telegraph_material.emission_energy_multiplier = 0.8
 	
 	mesh_instance.material_override = normal_material
+
+func apply_slow(duration: float, amount: float, effect_key: String = "generic_slow") -> void:
+	if movement_modifier:
+		movement_modifier.apply_slow(duration, amount, effect_key)
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -60,7 +70,8 @@ func _physics_process(delta: float) -> void:
 				
 		State.CHARGE:
 			# Move rapidly in stored direction
-			velocity = charge_dir * charge_speed
+			var speed_mult = movement_modifier.get_speed_multiplier() if movement_modifier else 1.0
+			velocity = charge_dir * (charge_speed * speed_mult)
 			move_and_slide()
 			
 			# Check contact damage

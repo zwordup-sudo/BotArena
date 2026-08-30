@@ -13,4 +13,4 @@ export_credentials.cfg
 
 # OS files
 Thumbs.db
-.DS_Store
+.DS_Storeexports/

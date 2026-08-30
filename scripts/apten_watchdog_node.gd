@@ -98,4 +98,4 @@ func _apply_watchdog_effect(target: Node) -> void:
 		
 	if target.has_method("apply_slow"):
 		# Apply small continuous slow while inside
-		target.apply_slow(0.2, SLOW_AMOUNT)
+		target.apply_slow(0.2, SLOW_AMOUNT, "apten_watchdog")

@@ -64,4 +64,4 @@ func _apply_fault_effect(target: Node) -> void:
 			owner_node.trigger_sync_event("apten_fault_line_hit")
 		
 	if target.has_method("apply_slow"):
-		target.apply_slow(slow_duration, slow_amount)
+		target.apply_slow(slow_duration, slow_amount, "apten_fault_line")

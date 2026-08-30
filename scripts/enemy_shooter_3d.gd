@@ -16,6 +16,17 @@ var fire_timer: float = 0.0
 var is_dead: bool = false
 var has_fired_initial: bool = false
 var stagger_timer: float = 0.0
+var movement_modifier: MovementModifier
+
+func _ready() -> void:
+	add_to_group("enemies")
+	movement_modifier = MovementModifier.new()
+	movement_modifier.name = "MovementModifier"
+	add_child(movement_modifier)
+
+func apply_slow(duration: float, amount: float, effect_key: String = "generic_slow") -> void:
+	if movement_modifier:
+		movement_modifier.apply_slow(duration, amount, effect_key)
 
 func _process(delta: float) -> void:
 	if is_dead:
@@ -49,6 +60,7 @@ func shoot() -> void:
 		dir = dir.normalized()
 		
 		var proj = HOSTILE_PROJECTILE.instantiate()
+		proj.source_actor = self
 		
 		var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
 		if projectiles_node:

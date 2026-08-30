@@ -52,4 +52,4 @@ func _process(delta: float) -> void:
 				
 	for h in current_hostiles:
 		if h.has_method("apply_slow"):
-			h.apply_slow(0.2, SLOW_AMOUNT)
+			h.apply_slow(0.2, SLOW_AMOUNT, "apten_interference")

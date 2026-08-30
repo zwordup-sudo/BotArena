@@ -193,6 +193,7 @@ var last_attack_time: float = -999.0
 var current_attack_event_id: int = 0
 var apten_intrusion_tracker: Node = null
 var apten_trace_daemon: Node = null
+var apten_trace_cache: Node = null
 var trace_daemon_speed_timer: float = 0.0
 var trace_daemon_speed_pct: float = 0.0
 
@@ -393,12 +394,19 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 		apten_trace_daemon.init_daemon(self)
 		add_child(apten_trace_daemon)
 		
+	if is_instance_valid(apten_trace_cache):
+		apten_trace_cache.set_process(false)
+		if apten_trace_cache.get_parent():
+			apten_trace_cache.get_parent().remove_child(apten_trace_cache)
+		apten_trace_cache.queue_free()
+	apten_trace_cache = null
+	
 	if _chassis and _chassis.id == "apten_operator_chassis":
 		var CacheClass = load("res://scripts/apten_trace_cache.gd")
-		var cache = CacheClass.new()
-		cache.init_cache(self)
-		cache.name = "AptenTraceCache"
-		add_child(cache)
+		apten_trace_cache = CacheClass.new()
+		apten_trace_cache.init_cache(self)
+		apten_trace_cache.name = "AptenTraceCache"
+		add_child(apten_trace_cache)
 	
 	recalculate_stats()
 	current_health = max_health
@@ -1020,10 +1028,9 @@ func notify_damage_dealt(target: Node, _damage: float, event_id: int) -> void:
 		if apten_trace_daemon.has_method("on_damage_dealt"):
 			apten_trace_daemon.on_damage_dealt(target, event_id)
 			
-	var trace_cache = get_node_or_null("AptenTraceCache")
-	if is_instance_valid(trace_cache):
-		if trace_cache.has_method("on_damage_dealt"):
-			trace_cache.on_damage_dealt(target, event_id)
+	if is_instance_valid(apten_trace_cache):
+		if apten_trace_cache.has_method("on_damage_dealt"):
+			apten_trace_cache.on_damage_dealt(target, event_id)
 
 func notify_kill(target: Node) -> void:
 	if execution_refresh_window_timer > 0.0 and not execution_refresh_triggered_this_activation:
@@ -1766,7 +1773,7 @@ func start_firewall_route(ability: AbilityData) -> void:
 	firewall_route_speed = ability.ability_move_speed
 	firewall_route_start_pos = global_position
 	firewall_route_direction = -aim_pivot.global_transform.basis.z
-	var input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	var input_dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if input_dir.length_squared() > 0.01:
 		firewall_route_direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	firewall_route_direction.y = 0.0
@@ -2512,8 +2519,14 @@ func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -
 	var post_armor_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(amount, armor, flat_pen, pct_pen)
 	var final_dmg = post_armor_dmg
 	
-	if final_dmg > 0.0 and is_instance_valid(apten_intrusion_tracker) and source:
-		apten_intrusion_tracker.register_hit(source, attack_event_id)
+	var intrusion_attacker = source
+	if source and source.get("source_actor") != null:
+		var projectile_owner = source.get("source_actor")
+		if is_instance_valid(projectile_owner):
+			intrusion_attacker = projectile_owner
+
+	if final_dmg > 0.0 and is_instance_valid(apten_intrusion_tracker) and intrusion_attacker:
+		apten_intrusion_tracker.register_hit(intrusion_attacker, attack_event_id)
 	
 	# Apply Reactive Plating projectile mitigation (Tank Core)
 	if source and source.is_in_group("hostile_projectile"):

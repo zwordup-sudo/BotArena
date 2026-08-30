@@ -5,7 +5,7 @@ var owner_node: Node = null
 var delay_timer: float = 0.7 # Delay before pulse (0.6-0.8s)
 
 const PULSE_RADIUS: float = 2.15
-const SLOW_AMOUNT: float = 0.18 # 18% slow
+const SLOW_AMOUNT: float = 0.55 # 55% slow
 const SLOW_DURATION: float = 0.55
 
 var mesh_inst: MeshInstance3D = null
@@ -72,4 +72,4 @@ func _pulse() -> void:
 		if ctrl:
 			ctrl.apply_compromised(owner_node, 3.5)
 		if h.has_method("apply_slow"):
-			h.apply_slow(SLOW_DURATION, SLOW_AMOUNT)
+			h.apply_slow(SLOW_DURATION, SLOW_AMOUNT, "apten_proxy")
