@@ -460,6 +460,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				apply_custom_build()
 
 func _physics_process(delta: float) -> void:
+	if is_instance_valid(primary_attack_runtime):
+		primary_attack_runtime.physics_update(delta)
+
 	# Update normal Dash cooldown
 	if dash_cooldown_timer > 0.0:
 		dash_cooldown_timer -= delta
@@ -629,9 +632,7 @@ func _process(delta: float) -> void:
 			if current_slam_ability_data:
 				execute_concussive_slam_hit(current_slam_ability_data)
 				
-	if is_instance_valid(primary_attack_runtime):
-		primary_attack_runtime.physics_update(delta)
-			
+
 	# Update evasion window timer
 	if is_evading_projectiles:
 		projectile_evasion_timer -= delta
