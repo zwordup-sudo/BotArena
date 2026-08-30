@@ -139,17 +139,11 @@ var ghost_buffer_charges: int = 0
 var execution_refresh_window_timer: float = 0.0
 var execution_refresh_triggered_this_activation: bool = false
 
-# Active Melee Projectile Interception window tracking (Assassin Polish 0.3)
-var is_melee_intercepting: bool = false
-var melee_interception_timer: float = 0.0
-var melee_intercepted_count: int = 0
-var current_melee_interception_data: PrimaryAttackData = null
-
 # Windup State tracking fields (Tank Lab 0.1)
 var is_winding_up: bool = false
 var windup_timer: float = 0.0
-var current_windup_attack_data: PrimaryAttackData = null
-var windup_aim_direction: Vector3 = Vector3.ZERO
+
+
 
 # Reactive Plating fields (Tank Lab 0.2)
 var reactive_plating_charges: int = 0
@@ -188,10 +182,9 @@ var firewall_route_direction: Vector3 = Vector3.ZERO
 var current_build_name: String = "BALANCED"
 
 # Combo State tracking fields
-var current_combo_index: int = 0
-var last_attack_time: float = -999.0
 var current_attack_event_id: int = 0
 var chassis_passive_runtime: Node = null
+var primary_attack_runtime: Node = null
 var trace_daemon_speed_timer: float = 0.0
 var trace_daemon_speed_pct: float = 0.0
 
@@ -207,6 +200,11 @@ func _ready() -> void:
 	chassis_passive_runtime = RuntimeClass.new()
 	chassis_passive_runtime.name = "ChassisPassiveRuntime"
 	add_child(chassis_passive_runtime)
+	
+	var PrimaryRuntimeClass = load("res://scripts/runtime/primary_attack_runtime.gd")
+	primary_attack_runtime = PrimaryRuntimeClass.new()
+	primary_attack_runtime.name = "PrimaryAttackRuntime"
+	add_child(primary_attack_runtime)
 
 	# Load existing selection from autoload GameSession if available
 	var saved_build = null
@@ -301,16 +299,10 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	execution_refresh_window_timer = 0.0
 	execution_refresh_triggered_this_activation = false
 	
-	is_melee_intercepting = false
-	melee_interception_timer = 0.0
-	melee_intercepted_count = 0
-	current_melee_interception_data = null
-	
+
 	is_winding_up = false
 	windup_timer = 0.0
-	current_windup_attack_data = null
-	windup_aim_direction = Vector3.ZERO
-	
+
 	reactive_plating_charges = 0
 	reactive_plating_damage_multiplier = 1.0
 	
@@ -402,8 +394,10 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	is_dashing = false
 	
 	# Reset combo states
-	current_combo_index = 0
-	last_attack_time = -999.0
+	if is_instance_valid(primary_attack_runtime) and bot_build.arms and bot_build.arms.primary_attack:
+		primary_attack_runtime.configure(bot_build.arms.primary_attack, self)
+	elif is_instance_valid(primary_attack_runtime):
+		primary_attack_runtime.configure(null, self)
 	
 	# Print stats to console output
 	var core_name = bot_build.core.display_name if (bot_build and bot_build.core) else "None"
@@ -622,14 +616,11 @@ func _process(delta: float) -> void:
 	if execution_refresh_window_timer > 0.0:
 		execution_refresh_window_timer -= delta
 		
-	# Update windup timer (Tank Lab 0.1)
 	if is_winding_up:
 		windup_timer -= delta
 		if windup_timer <= 0.0:
 			is_winding_up = false
-			if current_windup_attack_data:
-				execute_thrust_impact_hit(current_windup_attack_data, windup_aim_direction)
-				
+		
 	# Update Concussive Slam windup timer (Tank Arms)
 	if is_slam_winding_up:
 		slam_windup_timer -= delta
@@ -637,14 +628,9 @@ func _process(delta: float) -> void:
 			is_slam_winding_up = false
 			if current_slam_ability_data:
 				execute_concussive_slam_hit(current_slam_ability_data)
-			
-	# Update active melee interception window (Assassin Polish 0.3)
-	if is_melee_intercepting:
-		melee_interception_timer -= delta
-		if melee_interception_timer <= 0.0:
-			is_melee_intercepting = false
-		else:
-			process_melee_interception()
+				
+	if is_instance_valid(primary_attack_runtime):
+		primary_attack_runtime.physics_update(delta)
 			
 	# Update evasion window timer
 	if is_evading_projectiles:
@@ -701,10 +687,12 @@ func _process(delta: float) -> void:
 	if is_salvo_winding_up:
 		salvo_windup_timer -= delta
 		if salvo_windup_timer <= 0.0:
+			is_salvo_winding_up = false
 			execute_rail_salvo()
 		
 	# Primary Attack - Disabled during Burst Volley, Charged Shot Charging, Rocket Lunge, and Windup
-	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging and not is_winding_up and not is_salvo_winding_up
+	var primary_winding = (primary_attack_runtime and primary_attack_runtime.is_winding_up)
+	var fire_allowed = not is_burst_volley_active and not is_charged_shot_charging and not is_rocket_lunging and not is_winding_up and not is_salvo_winding_up and not primary_winding
 	if fire_allowed and bot_build and bot_build.arms and bot_build.arms.primary_attack:
 		var atk = bot_build.arms.primary_attack as PrimaryAttackData
 		if atk:
@@ -1486,62 +1474,7 @@ func create_slam_visual(radius: float) -> void:
 	tween.tween_property(mat, "albedo_color:a", 0.0, 0.25)
 	tween.tween_callback(mesh_instance.queue_free)
 
-func process_melee_interception() -> void:
-	if not current_melee_interception_data:
-		return
-		
-	var limit = current_melee_interception_data.projectile_interception_limit
-	var power = current_melee_interception_data.projectile_interception_power
-	var intercept_range = current_melee_interception_data.projectile_interception_range
-	var intercept_arc = current_melee_interception_data.projectile_interception_arc_degrees
-	
-	if melee_intercepted_count >= limit:
-		is_melee_intercepting = false
-		return
-		
-	var aim_dir = -aim_pivot.global_transform.basis.z
-	aim_dir.y = 0.0
-	aim_dir = aim_dir.normalized()
-	
-	# Query overlapping Areas inside interception range
-	var space_state = get_world_3d().direct_space_state
-	var eq = PhysicsShapeQueryParameters3D.new()
-	var esph = SphereShape3D.new()
-	esph.radius = intercept_range
-	eq.shape = esph
-	eq.transform = global_transform
-	eq.exclude = [get_rid()]
-	eq.collide_with_areas = true
-	eq.collide_with_bodies = false
-	
-	var candidates = space_state.intersect_shape(eq)
-	var best_proj: Area3D = null
-	var best_proj_dist: float = 999.0
-	
-	for cand in candidates:
-		var proj_area = cand.collider as Area3D
-		if is_instance_valid(proj_area) and proj_area.is_in_group("hostile_projectile") and proj_area.get("can_be_intercepted") == true:
-			var diff = proj_area.global_position - global_position
-			diff.y = 0.0
-			var d = diff.length()
-			if d <= intercept_range:
-				var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
-				if angle <= intercept_arc / 2.0:
-					if d < best_proj_dist:
-						best_proj_dist = d
-						best_proj = proj_area
-						
-	if best_proj:
-		# Slice projectile
-		for i in range(power):
-			if is_instance_valid(best_proj) and best_proj.has_method("take_interception_hit"):
-				best_proj.take_interception_hit()
-		print("Melee Intercepted hostile projectile inside active window: ", best_proj.name)
-		
-		# Swing's single opportunity is exhausted
-		melee_intercepted_count += 1
-		if melee_intercepted_count >= limit:
-			is_melee_intercepting = false
+
 
 func activate_legs_ability() -> void:
 	current_attack_event_id += 1
@@ -2087,310 +2020,10 @@ func start_dash() -> void:
 	dash_cooldown_timer = dash_cooldown
 
 func shoot() -> void:
-	current_attack_event_id += 1
-	if not bot_build or not bot_build.arms:
-		push_warning("Primary attack failed: No arms equipped.")
-		return
-	var part_arms = bot_build.arms
-	var attack_data = part_arms.primary_attack as PrimaryAttackData
-	if not attack_data:
-		push_warning("Primary attack failed: No primary attack data configured.")
-		return
-		
-	var attack_type = attack_data.attack_type
-	if attack_type == 0: # PROJECTILE
-		execute_projectile_primary(attack_data)
-	elif attack_type == 1: # MELEE_ARC
-		execute_melee_arc_primary(attack_data)
-	elif attack_type == 2: # THRUST_IMPACT
-		execute_thrust_impact_primary(attack_data)
+	if is_instance_valid(primary_attack_runtime):
+		primary_attack_runtime.try_attack()
 	else:
-		push_warning("Primary attack failed: Unsupported attack type: " + str(attack_type))
-
-func execute_projectile_primary(attack_data: PrimaryAttackData) -> void:
-	var proj_scene = attack_data.projectile_scene
-	if not proj_scene:
-		push_warning("Projectile attack failed: Missing projectile scene.")
-		return
-		
-	# Twin Stream ability modifies the projectile pattern during its active duration
-	if is_arms_active and bot_build.arms.active_ability.effect_type == 4: # TWIN_STREAM
-		var spread = deg_to_rad(2.5) # 5 degrees total symmetric spread
-		fire_twin_projectile_from_scene(proj_scene, -spread)
-		fire_twin_projectile_from_scene(proj_scene, spread)
-	else:
-		var proj = proj_scene.instantiate()
-		proj.source_actor = self
-		proj.set("attack_event_id", current_attack_event_id)
-		var aim_dir = -aim_pivot.global_transform.basis.z
-		aim_dir.y = 0.0
-		aim_dir = aim_dir.normalized()
-		
-		var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
-		if projectiles_node:
-			projectiles_node.add_child(proj)
-			
-		proj.global_position = muzzle.global_position
-		proj.direction = aim_dir
-		proj.damage = projectile_damage
-		proj.speed = projectile_speed
-		
-		if attack_data.optimal_range_threshold > 0.0:
-			proj.optimal_range_threshold = attack_data.optimal_range_threshold
-			proj.long_range_damage_multiplier = attack_data.long_range_damage_multiplier
-			proj.close_interception_power = attack_data.close_interception_power
-			proj.optimal_interception_power = attack_data.optimal_interception_power
-
-func fire_twin_projectile_from_scene(proj_scene: PackedScene, angle_offset: float) -> void:
-	var proj = proj_scene.instantiate()
-	proj.source_actor = self
-	proj.set("attack_event_id", current_attack_event_id)
-	var aim_dir = -aim_pivot.global_transform.basis.z
-	aim_dir.y = 0.0
-	aim_dir = aim_dir.normalized()
-	aim_dir = aim_dir.rotated(Vector3.UP, angle_offset)
-	
-	var projectiles_node = get_parent().get_node_or_null("Projectiles3D")
-	if projectiles_node:
-		projectiles_node.add_child(proj)
-		
-	proj.global_position = muzzle.global_position
-	proj.direction = aim_dir
-	# Twin Stream deals 55% normal effective damage
-	proj.damage = projectile_damage * 0.55
-	proj.speed = projectile_speed
-	if bot_build and bot_build.arms and bot_build.arms.primary_attack:
-		var attack_data = bot_build.arms.primary_attack as PrimaryAttackData
-		if attack_data and attack_data.optimal_range_threshold > 0.0:
-			proj.optimal_range_threshold = attack_data.optimal_range_threshold
-			proj.long_range_damage_multiplier = attack_data.long_range_damage_multiplier
-			proj.close_interception_power = attack_data.close_interception_power
-			proj.optimal_interception_power = attack_data.optimal_interception_power
-
-func execute_melee_arc_primary(attack_data: PrimaryAttackData) -> void:
-	var range_val = attack_data.melee_range
-	var arc_deg = attack_data.melee_arc_degrees
-	var dmg_mult = attack_data.damage_multiplier
-	
-	var aim_dir = -aim_pivot.global_transform.basis.z
-	aim_dir.y = 0.0
-	aim_dir = aim_dir.normalized()
-	
-	# Check if engage properties are active
-	var engage_rng = attack_data.engage_range
-	var engage_dist = attack_data.engage_distance
-	var engage_cone = attack_data.engage_cone_degrees
-	
-	if engage_rng > 0.0 and engage_dist > 0.0:
-		# Search for potential target inside engagement range & cone
-		var engage_space_state = get_world_3d().direct_space_state
-		var eq = PhysicsShapeQueryParameters3D.new()
-		var esph = SphereShape3D.new()
-		esph.radius = engage_rng
-		eq.shape = esph
-		eq.transform = global_transform
-		eq.exclude = [get_rid()]
-		eq.collide_with_areas = true
-		eq.collide_with_bodies = true
-		
-		var candidates = engage_space_state.intersect_shape(eq)
-		var best_target: Node3D = null
-		var best_dist: float = 999.0
-		
-		for cand in candidates:
-			var body = cand.collider
-			if is_instance_valid(body) and body.has_method("take_damage"):
-				var diff = body.global_position - global_position
-				diff.y = 0.0
-				var d = diff.length()
-				if d <= engage_rng:
-					var angle = rad_to_deg(aim_dir.angle_to(diff.normalized()))
-					if angle <= engage_cone / 2.0:
-						if d < best_dist:
-							best_dist = d
-							best_target = body
-							
-		if best_target:
-			var move_vec = aim_dir * engage_dist
-			var _collision = move_and_collide(move_vec)
-			
-	# Start projectile interception window if configured (Assassin Polish 0.3)
-	var intercept_limit = attack_data.projectile_interception_limit
-	var intercept_window = attack_data.projectile_interception_window
-	
-	if intercept_limit > 0 and intercept_window > 0.0:
-		is_melee_intercepting = true
-		melee_interception_timer = intercept_window
-		melee_intercepted_count = 0
-		current_melee_interception_data = attack_data
-		# Run immediate slice attempt on trigger frame
-		process_melee_interception()
-			
-	# One-shot physics query including areas (enemies and target dummy are Area3Ds)
-	var space_state = get_world_3d().direct_space_state
-	var query = PhysicsShapeQueryParameters3D.new()
-	var sphere = SphereShape3D.new()
-	sphere.radius = range_val
-	query.shape = sphere
-	query.transform = global_transform
-	query.exclude = [get_rid()]
-	query.collide_with_areas = true
-	query.collide_with_bodies = true
-	
-	var results = space_state.intersect_shape(query)
-	var raw_damage = projectile_damage * dmg_mult
-	if is_special_active and current_special_ability_data and current_special_ability_data.id == "execution_protocol":
-		raw_damage *= 1.10
-	
-	# Process combo indexing
-	var now = Time.get_ticks_msec() / 1000.0
-	var reset_time = attack_data.combo_reset_time
-	var combo_mults = attack_data.combo_multipliers
-	
-	# Determine visual boundaries (Interception arc is larger than damage arc)
-	var visual_range = range_val
-	var visual_arc = arc_deg
-	if intercept_limit > 0:
-		visual_range = attack_data.projectile_interception_range
-		visual_arc = attack_data.projectile_interception_arc_degrees
-	
-	if reset_time > 0.0 and combo_mults.size() > 0:
-		if now - last_attack_time > reset_time:
-			current_combo_index = 0
-		
-		var current_mult = combo_mults[current_combo_index]
-		var is_finisher = (current_combo_index == combo_mults.size() - 1)
-		
-		current_combo_index = (current_combo_index + 1) % combo_mults.size()
-		last_attack_time = now
-		
-		raw_damage = raw_damage * current_mult
-		
-		# For third hit finisher, create a brighter and slightly longer visual sweep
-		if is_finisher:
-			create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.4, 0.2, 0.7), 0.18)
-		else:
-			create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.9, 0.4, 0.4), 0.10)
-	else:
-		create_melee_visual_custom(visual_range, visual_arc, Color(1.0, 0.9, 0.4, 0.4), 0.10)
-	
-	print("\n--- MELEE SWING ---")
-	print("Candidates found: ", results.size())
-	if reset_time > 0.0:
-		print("Combo index executed: ", current_combo_index, " (Multiplier: ", raw_damage / (projectile_damage * dmg_mult), ")")
-	
-	for res in results:
-		var collider = res.collider
-		if is_instance_valid(collider) and collider.has_method("take_damage"):
-			var to_target = collider.global_position - global_position
-			to_target.y = 0.0
-			var dist = to_target.length()
-			
-			# Normalize and calculate horizontal angle
-			var norm_to_target = to_target.normalized() if dist > 0.001 else aim_dir
-			var angle = rad_to_deg(aim_dir.angle_to(norm_to_target))
-			
-			var inside_range = dist <= range_val
-			var inside_arc = angle <= arc_deg / 2.0
-			
-			print("Target: ", collider.name)
-			print("  Distance: ", snapped(dist, 0.01), " (Range: ", range_val, ")")
-			print("  Angle: ", snapped(angle, 0.1), " (Half-Arc: ", arc_deg / 2.0, ")")
-			print("  Inside range: ", inside_range)
-			print("  Inside arc: ", inside_arc)
-			
-			if inside_range and inside_arc:
-				var target_armor = (collider.get("armor") as float) if collider.get("armor") != null else 0.0
-				var flat_pen = flat_armor_penetration
-				var pct_pen = percent_armor_penetration
-				
-				# BREACH BLADES: check if target is compromised
-				if attack_data.id == "apten_breach_blades":
-					var ctrl = AptenStatusController.get_controller(collider)
-					if ctrl and ctrl.is_compromised_by(self):
-						flat_pen += 3.0 # Extra prototype penetration against compromised targets
-						pct_pen += 0.20
-						
-				# 1. Calculate effective final damage using centralized formula
-				var final_dmg = load("res://scripts/data/bot_stat_calculator.gd").calculate_armored_damage(raw_damage, target_armor, flat_pen, pct_pen)
-				
-				# 2. To avoid take_damage applying armor a second time, we must pass the inverse-armored damage.
-				var default_eff_armor = max(0.0, target_armor - flat_armor_penetration)
-				default_eff_armor = default_eff_armor * (1.0 - clamp(percent_armor_penetration, 0.0, 1.0))
-				var pre_armored_raw = final_dmg * (100.0 + default_eff_armor) / 100.0
-				
-				collider.take_damage(pre_armored_raw, self, current_attack_event_id)
-				trigger_sync_event("melee_damage", final_dmg)
-				
-				var applied_stagger = attack_data.stagger_duration
-				if attack_data.id == "apten_daemon_hammer":
-					var ctrl = AptenStatusController.get_controller(collider)
-					if ctrl and ctrl.is_compromised_by(self):
-						applied_stagger = 1.0 # Enhanced stagger for Warden
-				if applied_stagger > 0.0 and collider.has_method("apply_stagger"):
-					collider.apply_stagger(applied_stagger, self)
-					
-				print("  Damage applied: ", final_dmg)
-			else:
-				print("  Damage applied: 0")
-
-func execute_thrust_impact_primary(attack_data: PrimaryAttackData) -> void:
-	# Lock aim direction at the start of windup
-	var aim_dir = -aim_pivot.global_transform.basis.z
-	aim_dir.y = 0.0
-	aim_dir = aim_dir.normalized()
-	
-	is_winding_up = true
-	windup_timer = attack_data.windup_time
-	current_windup_attack_data = attack_data
-	windup_aim_direction = aim_dir
-
-func execute_thrust_impact_hit(attack_data: PrimaryAttackData, aim_dir: Vector3) -> void:
-	var range_val = attack_data.impact_range
-	var width_val = attack_data.impact_width
-	var dmg_mult = attack_data.damage_multiplier
-	var stagger_dur = attack_data.stagger_duration
-	
-	# One-shot physics query using a sphere shape spanning the impact range
-	var space_state = get_world_3d().direct_space_state
-	var query = PhysicsShapeQueryParameters3D.new()
-	var sphere = SphereShape3D.new()
-	sphere.radius = range_val
-	query.shape = sphere
-	query.transform = global_transform
-	query.exclude = [get_rid()]
-	query.collide_with_areas = true
-	query.collide_with_bodies = true
-	
-	var results = space_state.intersect_shape(query)
-	var final_dmg = projectile_damage * dmg_mult
-	
-	print("\n--- THRUST IMPACT HIT ---")
-	print("Candidates in sphere: ", results.size())
-	
-	# Create visual effect
-	create_thrust_visual(range_val, width_val, aim_dir)
-	
-	for res in results:
-		var collider = res.collider
-		if is_instance_valid(collider) and collider.has_method("take_damage"):
-			var rel = collider.global_position - global_position
-			rel.y = 0.0
-			
-			# Check frontal bounds projection
-			var dot = rel.dot(aim_dir)
-			var perp_vector = Vector3(-aim_dir.z, 0.0, aim_dir.x)
-			var perp_dist = abs(rel.dot(perp_vector))
-			
-			var inside_box = (dot >= 0.0) and (dot <= range_val) and (perp_dist <= width_val / 2.0)
-			
-			if inside_box:
-				collider.take_damage(final_dmg, self, current_attack_event_id)
-				trigger_sync_event("melee_damage", final_dmg)
-				print("Hit Target: ", collider.name, " inside impact box. Damage applied: ", final_dmg)
-				
-				if collider.has_method("apply_stagger"):
-					collider.apply_stagger(stagger_dur, self)
+		push_warning("Primary attack failed: PrimaryAttackRuntime not found or invalid.")
 
 func create_thrust_visual(range_val: float, width_val: float, aim_dir: Vector3) -> void:
 	var mesh_instance = MeshInstance3D.new()
