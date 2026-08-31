@@ -185,6 +185,7 @@ var current_build_name: String = "BALANCED"
 var current_attack_event_id: int = 0
 var chassis_passive_runtime: Node = null
 var primary_attack_runtime: Node = null
+var core_ability_runtime: CoreAbilityRuntime = null
 var trace_daemon_speed_timer: float = 0.0
 var trace_daemon_speed_pct: float = 0.0
 
@@ -205,6 +206,10 @@ func _ready() -> void:
 	primary_attack_runtime = PrimaryRuntimeClass.new()
 	primary_attack_runtime.name = "PrimaryAttackRuntime"
 	add_child(primary_attack_runtime)
+
+	core_ability_runtime = CoreAbilityRuntime.new()
+	core_ability_runtime.name = "CoreAbilityRuntime"
+	add_child(core_ability_runtime)
 
 	# Load existing selection from autoload GameSession if available
 	var saved_build = null
@@ -373,6 +378,13 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	var _chassis = new_build.get_chassis() if new_build else null
 	if chassis_passive_runtime:
 		chassis_passive_runtime.configure(_chassis, self)
+		
+	var core_ability: AbilityData = null
+	if new_build and new_build.core:
+		core_ability = new_build.core.active_ability
+		
+	if core_ability_runtime:
+		core_ability_runtime.configure(core_ability, self)
 	
 	recalculate_stats()
 	current_health = max_health
@@ -721,6 +733,10 @@ func activate_core_ability() -> void:
 	current_energy -= ability.energy_cost
 	core_cooldown_timer = ability.cooldown
 	
+	if is_instance_valid(core_ability_runtime):
+		core_ability_runtime.activate()
+
+func execute_core_effect_legacy(ability: AbilityData) -> void:
 	# Execute Dash Cooldown refresh once at activation (if configured)
 	if ability.refresh_dash_on_activate:
 		dash_cooldown_timer = 0.0
