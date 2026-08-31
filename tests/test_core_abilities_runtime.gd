@@ -140,10 +140,6 @@ func run_test() -> bool:
 	player.current_health = 100.0
 	player.activate_core_ability()
 	
-	if player.incoming_damage_multiplier >= 1.0:
-		print("FAILED: Fortify did not apply damage multiplier")
-		return false
-		
 	player.take_damage(10.0)
 	var fortify_dmg_taken = 100.0 - player.current_health
 	
@@ -152,9 +148,14 @@ func run_test() -> bool:
 		return false
 		
 	player.end_core_ability()
-	if player.incoming_damage_multiplier != 1.0:
-		print("FAILED: Fortify did not restore damage multiplier")
+	
+	player.current_health = 100.0
+	player.take_damage(10.0)
+	var final_dmg_taken = 100.0 - player.current_health
+	if not is_equal_approx(final_dmg_taken, base_dmg_taken):
+		print("FAILED: Fortify did not restore damage multiplier behaviorally")
 		return false
+		
 	print("Test 5 (Fortify) PASS")
 
 	main.queue_free()
