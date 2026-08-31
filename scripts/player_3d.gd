@@ -87,8 +87,6 @@ var bastion_charges: int = 0
 var bastion_field_node: Area3D = null
 
 # Core Active Ability temporary stats modifiers
-var core_temp_speed_mod: float = 0.0
-var core_temp_dash_speed_mod: float = 0.0
 var incoming_damage_multiplier: float = 1.0
 
 # Arms Active Ability temporary stats modifiers
@@ -163,9 +161,7 @@ var siege_drive_stagger_duration: float = 0.0
 var siege_drive_has_contacted: bool = false
 
 # Overwatch Matrix temporary stats modifiers (Shooter Core)
-var overwatch_fire_rate_modifier: float = 0.0
-var overwatch_projectile_speed_modifier: float = 0.0
-var overwatch_movement_speed_modifier: float = 0.0
+# Migrated to CoreAbilityRuntime in Q2
 
 # Vector Strafe fields (Shooter Legs)
 var is_vector_strafing: bool = false
@@ -247,7 +243,8 @@ func recalculate_stats() -> void:
 		max_health = calc.max_health
 		
 		# Coexisting modifiers: Permanent Effective Stats + Core Temp + Arms Temp + Overwatch Matrix
-		var speed_mod = core_temp_speed_mod + overwatch_movement_speed_modifier + trace_daemon_speed_pct
+		var core_move_mod = core_ability_runtime.get_move_speed_modifier() if is_instance_valid(core_ability_runtime) else 0.0
+		var speed_mod = core_move_mod + trace_daemon_speed_pct
 		if is_special_active and current_special_ability_data:
 			if current_special_ability_data.id == "unstoppable_drive" or current_special_ability_data.id == "skirmisher_momentum_shift":
 				speed_mod += 0.10
@@ -270,15 +267,18 @@ func recalculate_stats() -> void:
 		if is_arms_active and bot_build and bot_build.arms and bot_build.arms.active_ability:
 			twin_fire_bonus = bot_build.arms.active_ability.fire_rate_flat_bonus
 			
-		fire_rate = (calc.fire_rate * arms_temp_fire_rate_multiplier * rate_mult * (1.0 + overwatch_fire_rate_modifier)) + twin_fire_bonus
+		var core_fire_mod = core_ability_runtime.get_fire_rate_modifier() if is_instance_valid(core_ability_runtime) else 0.0
+		fire_rate = (calc.fire_rate * arms_temp_fire_rate_multiplier * rate_mult * (1.0 + core_fire_mod)) + twin_fire_bonus
 		projectile_damage = calc.projectile_damage * arms_temp_projectile_damage_multiplier
 		
-		var proj_speed_mod = overwatch_projectile_speed_modifier
+		var core_proj_mod = core_ability_runtime.get_projectile_speed_modifier() if is_instance_valid(core_ability_runtime) else 0.0
+		var proj_speed_mod = core_proj_mod
 		if is_special_active and current_special_ability_data and current_special_ability_data.id == "battle_tank_siege_window":
 			proj_speed_mod += 0.10
 		projectile_speed = calc.projectile_speed * (1.0 + proj_speed_mod)
 		
-		dash_speed = calc.dash_speed * (1.0 + core_temp_dash_speed_mod)
+		var core_dash_mod = core_ability_runtime.get_dash_speed_modifier() if is_instance_valid(core_ability_runtime) else 0.0
+		dash_speed = calc.dash_speed * (1.0 + core_dash_mod)
 		dash_duration = calc.dash_duration
 		dash_cooldown = calc.dash_cooldown
 		
@@ -293,8 +293,6 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	
 	# Clear temporary stat overrides
 	is_core_active = false
-	core_temp_speed_mod = 0.0
-	core_temp_dash_speed_mod = 0.0
 	incoming_damage_multiplier = 1.0
 	core_cooldown_timer = 0.0
 	core_duration_timer = 0.0
@@ -321,10 +319,6 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	siege_drive_speed = 0.0
 	siege_drive_stagger_duration = 0.0
 	siege_drive_has_contacted = false
-	
-	overwatch_fire_rate_modifier = 0.0
-	overwatch_projectile_speed_modifier = 0.0
-	overwatch_movement_speed_modifier = 0.0
 	
 	is_vector_strafing = false
 	vector_strafe_timer = 0.0
@@ -622,10 +616,13 @@ func _process(delta: float) -> void:
 	# Independent Core Ability Cooldown and Duration tracking
 	if core_cooldown_timer > 0.0:
 		core_cooldown_timer -= delta
-	if is_core_active:
+	if is_core_active and not (is_instance_valid(core_ability_runtime) and core_ability_runtime.is_active):
 		core_duration_timer -= delta
 		if core_duration_timer <= 0.0:
 			end_core_ability()
+			
+	if is_instance_valid(core_ability_runtime):
+		core_ability_runtime.process_update(delta)
 			
 	# Update execution refresh window timer
 	if execution_refresh_window_timer > 0.0:
@@ -883,10 +880,6 @@ func start_quarantine_gate(ability: AbilityData) -> void:
 
 func start_overwatch_matrix(ability: AbilityData) -> void:
 	is_core_active = true
-	core_duration_timer = ability.duration
-	overwatch_fire_rate_modifier = ability.temporary_fire_rate_pct
-	overwatch_projectile_speed_modifier = ability.temporary_projectile_speed_pct
-	overwatch_movement_speed_modifier = ability.temporary_movement_speed_pct
 	update_mesh_color()
 	recalculate_stats()
 
@@ -961,19 +954,12 @@ func deduct_barrier_durability() -> void:
 
 func start_core_stat_modifier(ability: AbilityData) -> void:
 	is_core_active = true
-	core_duration_timer = ability.duration
-	core_temp_speed_mod = ability.movement_speed_pct
-	core_temp_dash_speed_mod = ability.dash_speed_pct
-	
 	update_mesh_color()
 	recalculate_stats()
 
 func start_core_damage_reduction(ability: AbilityData) -> void:
 	is_core_active = true
-	core_duration_timer = ability.duration
-	core_temp_speed_mod = ability.movement_speed_pct
 	incoming_damage_multiplier = ability.incoming_damage_multiplier
-	
 	update_mesh_color()
 	recalculate_stats()
 
@@ -1072,18 +1058,12 @@ func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
 
 func end_core_ability() -> void:
 	is_core_active = false
-	core_temp_speed_mod = 0.0
-	core_temp_dash_speed_mod = 0.0
 	incoming_damage_multiplier = 1.0
 	is_evading_projectiles = false
 	projectile_evasion_timer = 0.0
 	ghost_buffer_charges = 0
 	reactive_plating_charges = 0
 	reactive_plating_damage_multiplier = 1.0
-	
-	overwatch_fire_rate_modifier = 0.0
-	overwatch_projectile_speed_modifier = 0.0
-	overwatch_movement_speed_modifier = 0.0
 	
 	# Clear barrier node
 	if is_instance_valid(barrier_node):
@@ -1932,7 +1912,10 @@ func update_canvas_hud() -> void:
 					elif is_evading_projectiles:
 						core_status = ab_name + " - EVADE " + str(snapped(projectile_evasion_timer, 0.1)) + "s"
 					else:
-						core_status = ab_name + " - ACTIVE " + str(snapped(core_duration_timer, 0.1)) + "s"
+						var dur = core_duration_timer
+						if is_instance_valid(core_ability_runtime) and core_ability_runtime.is_active:
+							dur = core_ability_runtime.duration_timer
+						core_status = ab_name + " - ACTIVE " + str(snapped(dur, 0.1)) + "s"
 				elif execution_refresh_window_timer > 0.0:
 					core_status = "EXECUTION WINDOW - " + str(snapped(execution_refresh_window_timer, 0.1)) + "s"
 				elif core_cooldown_timer > 0.0:
