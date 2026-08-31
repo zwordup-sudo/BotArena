@@ -4,11 +4,12 @@ func run_test() -> bool:
 	print("--- APTEN CHASSIS PASSIVE RUNTIME TEST ---")
 	
 	var main = load("res://scenes/main_3d.tscn").instantiate()
-	get_tree().root.add_child(main)
+	get_tree().root.add_child.call_deferred(main)
 	
 	# Wait for physics
 	await get_tree().physics_frame
 	await get_tree().physics_frame
+	await get_tree().process_frame
 	
 	var player = main.get_node("Arena3D/Player3D")
 	var runtime = player.chassis_passive_runtime
@@ -16,14 +17,15 @@ func run_test() -> bool:
 		print("FAILED: ChassisPassiveRuntime not found on Player3D")
 		return false
 		
-	var warden_build = load("res://resources/builds/test_builds/apten_warden_build.tres")
+	var warden_build = load("res://resources/builds/apten_warden_build.tres")
 	if not warden_build:
-		# Fallback to standard if no specific test build, but try to assign core directly
-		warden_build = player.bot_build.duplicate()
-		warden_build.core = load("res://resources/parts/core/apten_warden_core.tres")
+		print("FAILED: Warden build not loaded")
+		return false
+	warden_build.core = load("res://resources/parts/apten/tank/apten_warden_core.tres")
 	
 	# 1. Warden equips
 	player.apply_build(warden_build, "TEST_WARDEN")
+	await get_tree().process_frame
 	if not is_instance_valid(runtime.current_passive) or runtime.current_passive.name != "AptenIntrusionTracker":
 		print("FAILED: Warden equip did not create AptenIntrusionTracker")
 		return false
@@ -42,6 +44,7 @@ func run_test() -> bool:
 		
 	# 2. Warden reapplied
 	player.apply_build(warden_build, "TEST_WARDEN")
+	await get_tree().process_frame
 	if runtime.current_passive != first_tracker:
 		print("FAILED: Warden reapply recreated the passive instead of retaining it")
 		return false
@@ -50,9 +53,9 @@ func run_test() -> bool:
 		return false
 		
 	# 3. Operator equips
-	var operator_build = warden_build.duplicate()
-	operator_build.core = load("res://resources/parts/core/apten_operator_core.tres")
+	var operator_build = load("res://resources/builds/apten_operator_build.tres")
 	player.apply_build(operator_build, "TEST_OPERATOR")
+	await get_tree().process_frame
 	
 	if is_instance_valid(first_tracker) and not first_tracker.is_queued_for_deletion():
 		print("FAILED: Old IntrusionTracker was not cleaned up")
@@ -70,14 +73,14 @@ func run_test() -> bool:
 	main.add_child(dummy_target)
 	
 	runtime.on_damage_dealt(dummy_target, 10.0, 101)
-	if not cache_passive.active_targets.has(dummy_target.get_instance_id()):
+	if not cache_passive.hit_history.has(dummy_target.get_instance_id()):
 		print("FAILED: Operator event forwarding did not register hit")
 		return false
 		
 	# 4. Breacher equips
-	var breacher_build = warden_build.duplicate()
-	breacher_build.core = load("res://resources/parts/core/apten_breacher_core.tres")
+	var breacher_build = load("res://resources/builds/apten_breacher_build.tres")
 	player.apply_build(breacher_build, "TEST_BREACHER")
+	await get_tree().process_frame
 	
 	if not is_instance_valid(runtime.current_passive) or runtime.current_passive.name != "AptenTraceDaemon":
 		print("FAILED: Breacher equip did not create AptenTraceDaemon")
@@ -87,14 +90,14 @@ func run_test() -> bool:
 	
 	# Test Breacher forwarding
 	runtime.on_damage_dealt(dummy_target, 10.0, 102)
-	if not daemon_passive.active_targets.has(dummy_target.get_instance_id()):
+	if not daemon_passive.hit_history.has(dummy_target.get_instance_id()):
 		print("FAILED: Breacher event forwarding did not register hit")
 		return false
 		
 	# 5. Standard equips
-	var standard_build = warden_build.duplicate()
-	standard_build.core = load("res://resources/parts/core/standard_core.tres")
+	var standard_build = load("res://resources/builds/standard_bot_build.tres")
 	player.apply_build(standard_build, "TEST_STANDARD")
+	await get_tree().process_frame
 	
 	if is_instance_valid(runtime.current_passive):
 		print("FAILED: Standard equip did not remove passive")
@@ -107,6 +110,7 @@ func run_test() -> bool:
 	
 	# 6. Warden equips again
 	player.apply_build(warden_build, "TEST_WARDEN")
+	await get_tree().process_frame
 	if not is_instance_valid(runtime.current_passive) or runtime.current_passive.name != "AptenIntrusionTracker":
 		print("FAILED: Warden equip did not create AptenIntrusionTracker on second pass")
 		return false
