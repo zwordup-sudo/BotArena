@@ -125,6 +125,9 @@ func _activate_fortify() -> void:
 	move_speed_mod = active_ability.movement_speed_pct
 	incoming_damage_mod = active_ability.incoming_damage_multiplier
 
+	if is_instance_valid(owner_node) and owner_node.has_method("set_incoming_damage_multiplier"):
+		owner_node.set_incoming_damage_multiplier(incoming_damage_mod)
+
 func _activate_overwatch() -> void:
 	is_active = true
 	duration_timer = active_ability.duration

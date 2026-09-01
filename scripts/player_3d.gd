@@ -89,6 +89,12 @@ var bastion_field_node: Area3D = null
 # Core Active Ability temporary stats modifiers
 var incoming_damage_multiplier: float = 1.0
 
+func set_incoming_damage_multiplier(value: float) -> void:
+	incoming_damage_multiplier = value
+
+func get_incoming_damage_multiplier() -> float:
+	return incoming_damage_multiplier
+
 # Arms Active Ability temporary stats modifiers
 var arms_temp_fire_rate_multiplier: float = 1.0
 var arms_temp_projectile_damage_multiplier: float = 1.0
@@ -288,7 +294,7 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	
 	# Clear temporary stat overrides
 	is_core_active = false
-	incoming_damage_multiplier = 1.0
+	set_incoming_damage_multiplier(1.0)
 	core_cooldown_timer = 0.0
 	core_duration_timer = 0.0
 	execution_refresh_window_timer = 0.0
@@ -939,7 +945,6 @@ func start_core_stat_modifier(ability: AbilityData) -> void:
 
 func start_core_damage_reduction(ability: AbilityData) -> void:
 	is_core_active = true
-	incoming_damage_multiplier = ability.incoming_damage_multiplier
 	update_mesh_color()
 	recalculate_stats()
 
@@ -1026,7 +1031,7 @@ func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
 
 func end_core_ability() -> void:
 	is_core_active = false
-	incoming_damage_multiplier = 1.0
+	set_incoming_damage_multiplier(1.0)
 
 	if is_instance_valid(core_ability_runtime) and core_ability_runtime.has_method("on_core_ability_ended"):
 		core_ability_runtime.on_core_ability_ended()
@@ -2197,7 +2202,7 @@ func activate_protocol_special() -> void:
 			is_special_active = true
 			special_duration_timer = ab.duration
 			current_special_ability_data = ab
-			incoming_damage_multiplier = 0.80 # reduces damage by 20%
+			set_incoming_damage_multiplier(0.80) # reduces damage by 20%
 			
 			recalculate_stats()
 			
@@ -2232,7 +2237,7 @@ func activate_protocol_special() -> void:
 func end_protocol_special() -> void:
 	is_special_active = false
 	current_special_ability_data = null
-	incoming_damage_multiplier = 1.0
+	set_incoming_damage_multiplier(1.0)
 	execution_protocol_extensions_remaining = 0
 	
 	if is_instance_valid(bastion_field_node):

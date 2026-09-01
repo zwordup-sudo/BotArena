@@ -72,8 +72,8 @@ func run_test() -> bool:
 	if not is_equal_approx(runtime.get_move_speed_modifier(), fortify_ability.movement_speed_pct):
 		printerr("Fortify move mod mismatch. Expected: ", fortify_ability.movement_speed_pct, " Got: ", runtime.get_move_speed_modifier())
 		return false
-	if not is_equal_approx(player.incoming_damage_multiplier, fortify_ability.incoming_damage_multiplier):
-		printerr("Fortify damage mod mismatch. Expected: ", fortify_ability.incoming_damage_multiplier, " Got: ", player.incoming_damage_multiplier)
+	if not is_equal_approx(player.get_incoming_damage_multiplier(), fortify_ability.incoming_damage_multiplier):
+		printerr("Fortify damage mod mismatch. Expected: ", fortify_ability.incoming_damage_multiplier, " Got: ", player.get_incoming_damage_multiplier())
 		return false
 		
 	# Advance time to expire
@@ -82,7 +82,7 @@ func run_test() -> bool:
 	if not is_equal_approx(runtime.get_move_speed_modifier(), 0.0):
 		printerr("Fortify move mod did not expire.")
 		return false
-	if not is_equal_approx(player.incoming_damage_multiplier, 1.0):
+	if not is_equal_approx(player.get_incoming_damage_multiplier(), 1.0):
 		printerr("Fortify damage mod did not expire.")
 		return false
 
