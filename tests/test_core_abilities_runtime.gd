@@ -45,7 +45,7 @@ func run_test() -> bool:
 	player.current_health = 100.0
 	
 	player.activate_core_ability()
-	if not player.is_core_active or not player.is_evading_projectiles:
+	if not player.is_core_active or not player.core_ability_runtime.is_evading_projectiles():
 		print("FAILED: Reflex Evasion activation failed")
 		return false
 		
@@ -70,7 +70,7 @@ func run_test() -> bool:
 	player.current_health = 100.0
 	
 	player.activate_core_ability()
-	if not player.is_core_active or player.ghost_buffer_charges != 2:
+	if not player.is_core_active or player.core_ability_runtime.get_projectile_absorb_charges() != 2:
 		print("FAILED: Ghost Buffer activation failed")
 		return false
 		
@@ -79,7 +79,7 @@ func run_test() -> bool:
 	if player.current_health < 100.0:
 		print("FAILED: Ghost Buffer did not block projectile")
 		return false
-	if player.ghost_buffer_charges != 1:
+	if player.core_ability_runtime.get_projectile_absorb_charges() != 1:
 		print("FAILED: Ghost Buffer charge not consumed properly")
 		return false
 		

@@ -128,12 +128,7 @@ var rocket_lunge_speed: float = 0.0
 var barrier_node: Area3D = null
 var barrier_durability: int = 0
 
-# Evasion Window active state parameters (Reflex Overclock)
-var is_evading_projectiles: bool = false
-var projectile_evasion_timer: float = 0.0
-
-# Ghost Buffer guard charges (Assassin Core)
-var ghost_buffer_charges: int = 0
+# Ghost Buffer (Assassin Core)
 var execution_refresh_window_timer: float = 0.0
 var execution_refresh_triggered_this_activation: bool = false
 
@@ -296,9 +291,6 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	incoming_damage_multiplier = 1.0
 	core_cooldown_timer = 0.0
 	core_duration_timer = 0.0
-	is_evading_projectiles = false
-	projectile_evasion_timer = 0.0
-	ghost_buffer_charges = 0
 	execution_refresh_window_timer = 0.0
 	execution_refresh_triggered_this_activation = false
 	
@@ -642,13 +634,6 @@ func _process(delta: float) -> void:
 				execute_concussive_slam_hit(current_slam_ability_data)
 				
 
-	# Update evasion window timer
-	if is_evading_projectiles:
-		projectile_evasion_timer -= delta
-		if projectile_evasion_timer <= 0.0:
-			is_evading_projectiles = false
-			update_mesh_color()
-			
 	# Independent Arms Ability Cooldown and Duration tracking
 	if arms_cooldown_timer > 0.0:
 		arms_cooldown_timer -= delta
@@ -738,11 +723,6 @@ func execute_core_effect_legacy(ability: AbilityData) -> void:
 	if ability.refresh_dash_on_activate:
 		dash_cooldown_timer = 0.0
 		
-	# Execute Projectile Evasion duration (if configured)
-	if ability.projectile_evasion_duration > 0.0:
-		is_evading_projectiles = true
-		projectile_evasion_timer = ability.projectile_evasion_duration
-	
 	var effect_type = ability.effect_type
 	if effect_type == 0: # DIRECTIONAL_BARRIER
 		start_directional_barrier(ability)
@@ -966,20 +946,10 @@ func start_core_damage_reduction(ability: AbilityData) -> void:
 func start_ghost_buffer(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
-	ghost_buffer_charges = ability.projectile_guard_charges
 	execution_refresh_window_timer = ability.kill_refresh_window
 	execution_refresh_triggered_this_activation = false
 	
 	update_mesh_color()
-
-func deduct_ghost_buffer_charge() -> void:
-	if ghost_buffer_charges > 0:
-		ghost_buffer_charges -= 1
-		print("Ghost Buffer charges remaining: ", ghost_buffer_charges)
-		if ghost_buffer_charges <= 0:
-			end_core_ability()
-		else:
-			update_mesh_color()
 
 func start_reactive_plating(ability: AbilityData) -> void:
 	is_core_active = true
@@ -1059,9 +1029,10 @@ func trigger_sync_event(event_type: String, value: float = 0.0) -> void:
 func end_core_ability() -> void:
 	is_core_active = false
 	incoming_damage_multiplier = 1.0
-	is_evading_projectiles = false
-	projectile_evasion_timer = 0.0
-	ghost_buffer_charges = 0
+
+	if is_instance_valid(core_ability_runtime) and core_ability_runtime.has_method("on_core_ability_ended"):
+		core_ability_runtime.on_core_ability_ended()
+
 	reactive_plating_charges = 0
 	reactive_plating_damage_multiplier = 1.0
 	
@@ -1839,13 +1810,13 @@ func update_mesh_color() -> void:
 		mat.albedo_color = Color(1.0, 0.2, 0.6)
 		mat.roughness = 0.4
 		mesh.material_override = mat
-	elif is_evading_projectiles:
+	elif is_instance_valid(core_ability_runtime) and core_ability_runtime.is_evading_projectiles():
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(0.2, 0.9, 0.9, 0.4) # transparent cyan evasion glow
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mesh.material_override = mat
-	elif ghost_buffer_charges > 0: # Ghost Buffer (translucent magenta)
+	elif is_instance_valid(core_ability_runtime) and core_ability_runtime.get_projectile_absorb_charges() > 0: # Ghost Buffer (translucent magenta)
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(0.8, 0.2, 0.8, 0.5)
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -1906,11 +1877,11 @@ func update_canvas_hud() -> void:
 					if ability.effect_type == 0: # DIRECTIONAL_BARRIER
 						core_status = "BARRIER - ACTIVE " + str(barrier_durability) + "/3"
 					elif ability.effect_type == 9: # GHOST_BUFFER
-						core_status = "GHOST BUFFER - " + str(ghost_buffer_charges) + "/2"
+						core_status = "GHOST BUFFER - " + str(core_ability_runtime.get_projectile_absorb_charges() if is_instance_valid(core_ability_runtime) else 0) + "/2"
 					elif ability.effect_type == 12: # REACTIVE_PLATING
 						core_status = "REACTIVE PLATING - " + str(reactive_plating_charges) + "/4"
-					elif is_evading_projectiles:
-						core_status = ab_name + " - EVADE " + str(snapped(projectile_evasion_timer, 0.1)) + "s"
+					elif is_instance_valid(core_ability_runtime) and core_ability_runtime.is_evading_projectiles():
+						core_status = ab_name + " - EVADE " + str(snapped(core_ability_runtime.get_projectile_evasion_timer(), 0.1)) + "s"
 					else:
 						var dur = core_duration_timer
 						if is_instance_valid(core_ability_runtime) and core_ability_runtime.is_active:
@@ -2145,6 +2116,11 @@ func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -
 	if current_health <= 0.0:
 		die()
 
+func evaluate_hostile_projectile_impact(projectile: Node3D) -> int:
+	if is_instance_valid(core_ability_runtime):
+		return core_ability_runtime.evaluate_projectile_impact(projectile)
+	return CoreAbilityRuntime.ProjectileImpactResult.NORMAL
+
 func die() -> void:
 	AptenStatusController.clear_all_from_source(self)
 	print("Player3D defeated")
@@ -2259,7 +2235,8 @@ func activate_protocol_special() -> void:
 			is_special_active = true
 			special_duration_timer = ab.duration
 			current_special_ability_data = ab
-			ghost_buffer_charges = 1
+			if is_instance_valid(core_ability_runtime):
+				core_ability_runtime.set_projectile_absorb_charges(1)
 			recalculate_stats()
 			
 	update_mesh_color()

@@ -7,6 +7,28 @@ var owner_node: CharacterBody3D
 var is_active: bool = false
 var duration_timer: float = 0.0
 
+enum ProjectileImpactResult {
+	NORMAL,
+	PASS_THROUGH,
+	ABSORBED
+}
+
+var _is_evading_projectiles: bool = false
+var _projectile_evasion_timer: float = 0.0
+var _ghost_buffer_charges: int = 0
+
+func get_projectile_absorb_charges() -> int:
+	return _ghost_buffer_charges
+
+func set_projectile_absorb_charges(value: int) -> void:
+	_ghost_buffer_charges = value
+
+func is_evading_projectiles() -> bool:
+	return _is_evading_projectiles
+
+func get_projectile_evasion_timer() -> float:
+	return _projectile_evasion_timer
+
 var move_speed_mod: float = 0.0
 var dash_speed_mod: float = 0.0
 var incoming_damage_mod: float = 1.0
@@ -21,6 +43,9 @@ func configure(ability: AbilityData, owner: CharacterBody3D) -> void:
 func _reset_state() -> void:
 	is_active = false
 	duration_timer = 0.0
+	_is_evading_projectiles = false
+	_projectile_evasion_timer = 0.0
+	_ghost_buffer_charges = 0
 	move_speed_mod = 0.0
 	dash_speed_mod = 0.0
 	incoming_damage_mod = 1.0
@@ -31,13 +56,15 @@ func activate() -> void:
 	if not is_instance_valid(owner_node) or not active_ability:
 		return
 		
-	# Q2 Migration: Intercept Reflex Overclock, Fortify, Overwatch Matrix
+	# Q2/Q3 Migration: Intercept Reflex Overclock, Fortify, Overwatch Matrix, Ghost Buffer
 	if active_ability.effect_type == 1: # TEMPORARY_STAT_MODIFIER (Reflex)
 		_activate_reflex()
 	elif active_ability.effect_type == 2: # DAMAGE_REDUCTION (Fortify)
 		_activate_fortify()
 	elif active_ability.effect_type == 15: # OVERWATCH_MATRIX (Overwatch)
 		_activate_overwatch()
+	elif active_ability.effect_type == 9: # PROJECTILE_GUARD (Ghost Buffer)
+		_activate_ghost_buffer()
 		
 	# Phase 2C-Q legacy effect dispatcher; effects migrate in Q2-Q4.
 	if owner_node.has_method("execute_core_effect_legacy"):
@@ -48,6 +75,14 @@ func _activate_reflex() -> void:
 	duration_timer = active_ability.duration
 	move_speed_mod = active_ability.movement_speed_pct
 	dash_speed_mod = active_ability.dash_speed_pct
+	if active_ability.projectile_evasion_duration > 0.0:
+		_is_evading_projectiles = true
+		_projectile_evasion_timer = active_ability.projectile_evasion_duration
+
+func _activate_ghost_buffer() -> void:
+	is_active = true
+	duration_timer = active_ability.duration
+	_ghost_buffer_charges = active_ability.projectile_guard_charges
 
 func _activate_fortify() -> void:
 	is_active = true
@@ -63,6 +98,13 @@ func _activate_overwatch() -> void:
 	move_speed_mod = active_ability.temporary_movement_speed_pct
 
 func process_update(delta: float) -> void:
+	if _is_evading_projectiles:
+		_projectile_evasion_timer -= delta
+		if _projectile_evasion_timer <= 0.0:
+			_is_evading_projectiles = false
+			if is_instance_valid(owner_node) and owner_node.has_method("update_mesh_color"):
+				owner_node.update_mesh_color()
+
 	if is_active:
 		duration_timer -= delta
 		if duration_timer <= 0.0:
@@ -89,3 +131,25 @@ func get_projectile_speed_modifier() -> float:
 
 func get_incoming_damage_modifier() -> float:
 	return incoming_damage_mod if is_active else 1.0
+
+func evaluate_projectile_impact(projectile: Node3D) -> ProjectileImpactResult:
+	if not is_active:
+		return ProjectileImpactResult.NORMAL
+
+	if _is_evading_projectiles:
+		return ProjectileImpactResult.PASS_THROUGH
+
+	if _ghost_buffer_charges > 0:
+		_ghost_buffer_charges -= 1
+		if is_instance_valid(owner_node) and owner_node.has_method("update_mesh_color"):
+			owner_node.update_mesh_color()
+		return ProjectileImpactResult.ABSORBED
+
+	return ProjectileImpactResult.NORMAL
+
+func on_core_ability_ended() -> void:
+	# Idempotent cleanup for Core active state that might have been tracked
+	_is_evading_projectiles = false
+	_projectile_evasion_timer = 0.0
+	_ghost_buffer_charges = 0
+	# We do NOT reset configured AbilityData, cooldown, or energy here.

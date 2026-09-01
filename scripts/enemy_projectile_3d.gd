@@ -40,14 +40,12 @@ func _on_body_entered(body: Node3D) -> void:
 	if body == source_actor:
 		return
 		
-	if body.get("is_evading_projectiles") == true:
-		return
-		
-	# Check for Ghost Buffer guard charges
-	if body.get("ghost_buffer_charges") != null and body.ghost_buffer_charges > 0:
-		if body.has_method("deduct_ghost_buffer_charge"):
+	if body.has_method("evaluate_hostile_projectile_impact"):
+		var impact_result = body.evaluate_hostile_projectile_impact(self)
+		if impact_result == CoreAbilityRuntime.ProjectileImpactResult.PASS_THROUGH:
+			return
+		elif impact_result == CoreAbilityRuntime.ProjectileImpactResult.ABSORBED:
 			is_consumed = true
-			body.deduct_ghost_buffer_charge()
 			queue_free()
 			return
 			
