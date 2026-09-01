@@ -139,8 +139,8 @@ var windup_timer: float = 0.0
 
 
 # Reactive Plating fields (Tank Lab 0.2)
-var reactive_plating_charges: int = 0
-var reactive_plating_damage_multiplier: float = 1.0
+
+
 
 # Concussive Slam fields (Tank Lab 0.2)
 var is_slam_winding_up: bool = false
@@ -298,8 +298,8 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	is_winding_up = false
 	windup_timer = 0.0
 
-	reactive_plating_charges = 0
-	reactive_plating_damage_multiplier = 1.0
+
+
 	
 	is_slam_winding_up = false
 	slam_windup_timer = 0.0
@@ -954,8 +954,6 @@ func start_ghost_buffer(ability: AbilityData) -> void:
 func start_reactive_plating(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
-	reactive_plating_charges = ability.projectile_mitigation_charges
-	reactive_plating_damage_multiplier = ability.projectile_damage_multiplier
 	update_mesh_color()
 
 func notify_damage_dealt(target: Node, _damage: float, event_id: int) -> void:
@@ -1032,9 +1030,6 @@ func end_core_ability() -> void:
 
 	if is_instance_valid(core_ability_runtime) and core_ability_runtime.has_method("on_core_ability_ended"):
 		core_ability_runtime.on_core_ability_ended()
-
-	reactive_plating_charges = 0
-	reactive_plating_damage_multiplier = 1.0
 	
 	# Clear barrier node
 	if is_instance_valid(barrier_node):
@@ -1822,7 +1817,7 @@ func update_mesh_color() -> void:
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mesh.material_override = mat
-	elif reactive_plating_charges > 0: # Reactive Plating (translucent steel-blue)
+	elif is_instance_valid(core_ability_runtime) and core_ability_runtime.get_projectile_mitigation_charges() > 0: # Reactive Plating (translucent steel-blue)
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Color(0.3, 0.6, 1.0, 0.5)
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -1879,7 +1874,7 @@ func update_canvas_hud() -> void:
 					elif ability.effect_type == 9: # GHOST_BUFFER
 						core_status = "GHOST BUFFER - " + str(core_ability_runtime.get_projectile_absorb_charges() if is_instance_valid(core_ability_runtime) else 0) + "/2"
 					elif ability.effect_type == 12: # REACTIVE_PLATING
-						core_status = "REACTIVE PLATING - " + str(reactive_plating_charges) + "/4"
+						core_status = "REACTIVE PLATING - " + str(core_ability_runtime.get_projectile_mitigation_charges() if is_instance_valid(core_ability_runtime) else 0) + "/4"
 					elif is_instance_valid(core_ability_runtime) and core_ability_runtime.is_evading_projectiles():
 						core_status = ab_name + " - EVADE " + str(snapped(core_ability_runtime.get_projectile_evasion_timer(), 0.1)) + "s"
 					else:
@@ -2096,15 +2091,8 @@ func take_damage(amount: float, source: Node = null, attack_event_id: int = 0) -
 		chassis_passive_runtime.on_damage_taken(source, final_dmg, attack_event_id)
 	
 	# Apply Reactive Plating projectile mitigation (Tank Core)
-	if source and source.is_in_group("hostile_projectile"):
-		if reactive_plating_charges > 0:
-			final_dmg *= reactive_plating_damage_multiplier
-			reactive_plating_charges -= 1
-			print("Reactive Plating mitigated damage! Remaining plates: ", reactive_plating_charges)
-			if reactive_plating_charges <= 0:
-				end_core_ability()
-			else:
-				update_mesh_color()
+	if is_instance_valid(core_ability_runtime):
+		final_dmg = core_ability_runtime.modify_incoming_projectile_damage(final_dmg, source)
 				
 	var final_applied = final_dmg * incoming_damage_multiplier
 	var prevented = amount - final_applied
@@ -2227,8 +2215,8 @@ func activate_protocol_special() -> void:
 			is_special_active = true
 			special_duration_timer = ab.duration
 			current_special_ability_data = ab
-			reactive_plating_charges = 2
-			reactive_plating_damage_multiplier = 0.5
+			if is_instance_valid(core_ability_runtime):
+				core_ability_runtime.set_projectile_mitigation_state(2, 0.5)
 			recalculate_stats()
 			
 		"skirmisher_momentum_shift":

@@ -98,18 +98,18 @@ func run_test() -> bool:
 	player.current_health = 100.0
 	
 	player.activate_core_ability()
-	if not player.is_core_active or player.reactive_plating_charges <= 0:
+	if not player.is_core_active or player.core_ability_runtime.get_projectile_mitigation_charges() <= 0:
 		print("FAILED: Reactive Plating activation failed")
 		return false
 		
-	var initial_charges = player.reactive_plating_charges
+	var initial_charges = player.core_ability_runtime.get_projectile_mitigation_charges()
 	var proj_plating = create_dummy_projectile.call()
 	# For Reactive Plating, it applies mitigation inside take_damage when source is a projectile
 	player.take_damage(10.0, proj_plating)
-	var expected_mitigated = 10.0 * player.reactive_plating_damage_multiplier
+	var expected_mitigated = 10.0 * player.core_ability_runtime.get_projectile_mitigation_multiplier()
 	# Need to account for armor calculation. 
 	# Let's just check if it consumed a charge and took some damage.
-	if player.reactive_plating_charges != initial_charges - 1:
+	if player.core_ability_runtime.get_projectile_mitigation_charges() != initial_charges - 1:
 		print("FAILED: Reactive Plating charge not consumed properly")
 		return false
 	if player.current_health >= 100.0:
@@ -121,7 +121,7 @@ func run_test() -> bool:
 	player.take_damage(10.0)
 	var dmg_taken_contact = hp_before_contact - player.current_health
 	# The contact damage should not consume a charge
-	if player.reactive_plating_charges != initial_charges - 1:
+	if player.core_ability_runtime.get_projectile_mitigation_charges() != initial_charges - 1:
 		print("FAILED: Reactive Plating incorrectly consumed charge on contact damage")
 		return false
 	proj_plating.queue_free()

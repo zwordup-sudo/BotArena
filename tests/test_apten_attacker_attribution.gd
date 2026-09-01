@@ -61,7 +61,7 @@ func run_test() -> bool:
 		return false
 		
 	# Verify Reactive Plating triggers correctly on hostile projectiles
-	player.reactive_plating_charges = 1
+	player.core_ability_runtime.set_projectile_mitigation_state(1, 0.5)
 	var proj4 = Area3D.new()
 	proj4.name = "TestProj4"
 	proj4.set_script(proj_script)
@@ -73,7 +73,7 @@ func run_test() -> bool:
 	await get_tree().physics_frame
 	
 	proj4._on_body_entered(player)
-	if player.reactive_plating_charges != 0:
+	if player.core_ability_runtime.get_projectile_mitigation_charges() != 0:
 		print("FAILED: Reactive Plating did not consume charge on hostile projectile")
 		return false
 		

@@ -23,6 +23,33 @@ func get_projectile_absorb_charges() -> int:
 func set_projectile_absorb_charges(value: int) -> void:
 	_ghost_buffer_charges = value
 
+var _reactive_plating_charges: int = 0
+var _reactive_plating_damage_multiplier: float = 1.0
+
+func modify_incoming_projectile_damage(damage: float, source: Node) -> float:
+	if _reactive_plating_charges > 0 and source and source.is_in_group("hostile_projectile"):
+		var transformed = damage * _reactive_plating_damage_multiplier
+		_reactive_plating_charges -= 1
+		print("Reactive Plating mitigated damage! Remaining plates: ", _reactive_plating_charges)
+		if _reactive_plating_charges <= 0:
+			if is_instance_valid(owner_node) and owner_node.has_method("end_core_ability"):
+				owner_node.end_core_ability()
+		else:
+			if is_instance_valid(owner_node) and owner_node.has_method("update_mesh_color"):
+				owner_node.update_mesh_color()
+		return transformed
+	return damage
+
+func get_projectile_mitigation_charges() -> int:
+	return _reactive_plating_charges
+
+func get_projectile_mitigation_multiplier() -> float:
+	return _reactive_plating_damage_multiplier
+
+func set_projectile_mitigation_state(charges: int, multiplier: float) -> void:
+	_reactive_plating_charges = charges
+	_reactive_plating_damage_multiplier = multiplier
+
 func is_evading_projectiles() -> bool:
 	return _is_evading_projectiles
 
@@ -46,6 +73,8 @@ func _reset_state() -> void:
 	_is_evading_projectiles = false
 	_projectile_evasion_timer = 0.0
 	_ghost_buffer_charges = 0
+	_reactive_plating_charges = 0
+	_reactive_plating_damage_multiplier = 1.0
 	move_speed_mod = 0.0
 	dash_speed_mod = 0.0
 	incoming_damage_mod = 1.0
@@ -65,6 +94,8 @@ func activate() -> void:
 		_activate_overwatch()
 	elif active_ability.effect_type == 9: # PROJECTILE_GUARD (Ghost Buffer)
 		_activate_ghost_buffer()
+	elif active_ability.effect_type == 12: # REACTIVE_PLATING
+		_activate_reactive_plating()
 		
 	# Phase 2C-Q legacy effect dispatcher; effects migrate in Q2-Q4.
 	if owner_node.has_method("execute_core_effect_legacy"):
@@ -83,6 +114,10 @@ func _activate_ghost_buffer() -> void:
 	is_active = true
 	duration_timer = active_ability.duration
 	_ghost_buffer_charges = active_ability.projectile_guard_charges
+
+func _activate_reactive_plating() -> void:
+	_reactive_plating_charges = active_ability.projectile_mitigation_charges
+	_reactive_plating_damage_multiplier = active_ability.projectile_damage_multiplier
 
 func _activate_fortify() -> void:
 	is_active = true
@@ -152,4 +187,6 @@ func on_core_ability_ended() -> void:
 	_is_evading_projectiles = false
 	_projectile_evasion_timer = 0.0
 	_ghost_buffer_charges = 0
+	_reactive_plating_charges = 0
+	_reactive_plating_damage_multiplier = 1.0
 	# We do NOT reset configured AbilityData, cooldown, or energy here.
