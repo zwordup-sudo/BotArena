@@ -87,8 +87,26 @@ func run_test() -> bool:
 	if player.current_health >= 100.0:
 		print("FAILED: Ghost Buffer incorrectly blocked contact damage")
 		return false
+	# Test Ghost kill-refresh externally
+	player.set_core_cooldown_remaining(10.0)
+	var pre_kill_energy = player.current_energy
+	player.notify_kill(Node.new())
+	if player.get_core_cooldown_remaining() != 0.0:
+		print("FAILED: Ghost Buffer kill did not refresh cooldown externally")
+		return false
+	if not is_equal_approx(player.current_energy, pre_kill_energy):
+		print("FAILED: Ghost Buffer kill unexpectedly refunded energy")
+		return false
+	# Second kill shouldn't refresh
+	player.set_core_cooldown_remaining(10.0)
+	player.notify_kill(Node.new())
+	if player.get_core_cooldown_remaining() == 0.0:
+		print("FAILED: Ghost Buffer refreshed more than once")
+		return false
+
 	proj_ghost.queue_free()
 	print("Test 3 (Ghost Buffer) PASS")
+
 
 	# 4. REACTIVE PLATING (Tank Core)
 	player.bot_build.core = load("res://resources/parts/core/tank_test_core.tres")

@@ -26,6 +26,9 @@ func set_projectile_absorb_charges(value: int) -> void:
 var _reactive_plating_charges: int = 0
 var _reactive_plating_damage_multiplier: float = 1.0
 
+var _kill_refresh_window_timer: float = 0.0
+var _kill_refresh_consumed: bool = false
+
 func modify_incoming_projectile_damage(damage: float, source: Node) -> float:
 	if _reactive_plating_charges > 0 and source and source.is_in_group("hostile_projectile"):
 		var transformed = damage * _reactive_plating_damage_multiplier
@@ -65,6 +68,8 @@ var projectile_speed_mod: float = 0.0
 func configure(ability: AbilityData, owner: CharacterBody3D) -> void:
 	active_ability = ability
 	owner_node = owner
+	_kill_refresh_window_timer = 0.0
+	_kill_refresh_consumed = false
 	_reset_state()
 
 func _reset_state() -> void:
@@ -75,6 +80,7 @@ func _reset_state() -> void:
 	_ghost_buffer_charges = 0
 	_reactive_plating_charges = 0
 	_reactive_plating_damage_multiplier = 1.0
+
 	move_speed_mod = 0.0
 	dash_speed_mod = 0.0
 	incoming_damage_mod = 1.0
@@ -114,6 +120,10 @@ func _activate_ghost_buffer() -> void:
 	is_active = true
 	duration_timer = active_ability.duration
 	_ghost_buffer_charges = active_ability.projectile_guard_charges
+	_kill_refresh_window_timer = active_ability.kill_refresh_window
+	_kill_refresh_consumed = false
+
+
 
 func _activate_reactive_plating() -> void:
 	_reactive_plating_charges = active_ability.projectile_mitigation_charges
@@ -143,6 +153,9 @@ func process_update(delta: float) -> void:
 			if is_instance_valid(owner_node) and owner_node.has_method("update_mesh_color"):
 				owner_node.update_mesh_color()
 
+	if _kill_refresh_window_timer > 0.0:
+		_kill_refresh_window_timer -= delta
+
 	if is_active:
 		duration_timer -= delta
 		if duration_timer <= 0.0:
@@ -160,6 +173,16 @@ func get_move_speed_modifier() -> float:
 
 func get_dash_speed_modifier() -> float:
 	return dash_speed_mod if is_active else 0.0
+
+func get_kill_refresh_window_timer() -> float:
+	return _kill_refresh_window_timer
+
+func on_kill(target: Node) -> void:
+	if _kill_refresh_window_timer > 0.0 and not _kill_refresh_consumed:
+		_kill_refresh_consumed = true
+		_kill_refresh_window_timer = 0.0
+		if is_instance_valid(owner_node) and owner_node.has_method("set_core_cooldown_remaining"):
+			owner_node.set_core_cooldown_remaining(0.0)
 
 func get_fire_rate_modifier() -> float:
 	return fire_rate_mod if is_active else 0.0

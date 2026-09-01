@@ -135,8 +135,6 @@ var barrier_node: Area3D = null
 var barrier_durability: int = 0
 
 # Ghost Buffer (Assassin Core)
-var execution_refresh_window_timer: float = 0.0
-var execution_refresh_triggered_this_activation: bool = false
 
 # Windup State tracking fields (Tank Lab 0.1)
 var is_winding_up: bool = false
@@ -297,9 +295,6 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	set_incoming_damage_multiplier(1.0)
 	core_cooldown_timer = 0.0
 	core_duration_timer = 0.0
-	execution_refresh_window_timer = 0.0
-	execution_refresh_triggered_this_activation = false
-	
 
 	is_winding_up = false
 	windup_timer = 0.0
@@ -621,11 +616,9 @@ func _process(delta: float) -> void:
 			
 	if is_instance_valid(core_ability_runtime):
 		core_ability_runtime.process_update(delta)
-			
-	# Update execution refresh window timer
-	if execution_refresh_window_timer > 0.0:
-		execution_refresh_window_timer -= delta
-		
+
+	# Pass delta to system components
+
 	if is_winding_up:
 		windup_timer -= delta
 		if windup_timer <= 0.0:
@@ -951,9 +944,7 @@ func start_core_damage_reduction(ability: AbilityData) -> void:
 func start_ghost_buffer(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
-	execution_refresh_window_timer = ability.kill_refresh_window
-	execution_refresh_triggered_this_activation = false
-	
+
 	update_mesh_color()
 
 func start_reactive_plating(ability: AbilityData) -> void:
@@ -966,11 +957,8 @@ func notify_damage_dealt(target: Node, _damage: float, event_id: int) -> void:
 		chassis_passive_runtime.on_damage_dealt(target, _damage, event_id)
 
 func notify_kill(target: Node) -> void:
-	if execution_refresh_window_timer > 0.0 and not execution_refresh_triggered_this_activation:
-		core_cooldown_timer = 0.0
-		execution_refresh_triggered_this_activation = true
-		execution_refresh_window_timer = 0.0
-		print("Execution Refresh Window: Target ", target.name, " defeated. Core cooldown immediately refreshed!")
+	if is_instance_valid(core_ability_runtime) and core_ability_runtime.has_method("on_kill"):
+		core_ability_runtime.on_kill(target)
 	
 	# Protocol Sync hook:
 	trigger_sync_event("kill")
@@ -981,6 +969,12 @@ func notify_kill(target: Node) -> void:
 			execution_protocol_extensions_remaining -= 1
 			special_duration_timer += 1.0
 			print("Execution Protocol extended by 1.0s!")
+
+func set_core_cooldown_remaining(value: float) -> void:
+	core_cooldown_timer = value
+
+func get_core_cooldown_remaining() -> float:
+	return core_cooldown_timer
 
 func notify_stagger(_target: Node) -> void:
 	trigger_sync_event("stagger")
@@ -1887,12 +1881,17 @@ func update_canvas_hud() -> void:
 						if is_instance_valid(core_ability_runtime) and core_ability_runtime.is_active:
 							dur = core_ability_runtime.duration_timer
 						core_status = ab_name + " - ACTIVE " + str(snapped(dur, 0.1)) + "s"
-				elif execution_refresh_window_timer > 0.0:
-					core_status = "EXECUTION WINDOW - " + str(snapped(execution_refresh_window_timer, 0.1)) + "s"
-				elif core_cooldown_timer > 0.0:
-					core_status = ab_name + " - " + str(snapped(core_cooldown_timer, 0.1)) + "s"
 				else:
-					core_status = ab_name + " - READY"
+					var kill_refresh_timer = 0.0
+					if is_instance_valid(core_ability_runtime) and core_ability_runtime.has_method("get_kill_refresh_window_timer"):
+						kill_refresh_timer = core_ability_runtime.get_kill_refresh_window_timer()
+
+					if kill_refresh_timer > 0.0:
+						core_status = "EXECUTION WINDOW - " + str(snapped(kill_refresh_timer, 0.1)) + "s"
+					elif core_cooldown_timer > 0.0:
+						core_status = ab_name + " - " + str(snapped(core_cooldown_timer, 0.1)) + "s"
+					else:
+						core_status = ab_name + " - READY"
 				
 		# Format Arms ability status
 		var arms_status = "NO ARMS ABILITY"
@@ -2208,8 +2207,8 @@ func activate_protocol_special() -> void:
 			
 		"universal_system_reboot":
 			current_energy = clamp(current_energy + 35.0, 0.0, max_energy)
-			if core_cooldown_timer > 0.0:
-				core_cooldown_timer = max(0.0, core_cooldown_timer - core_cooldown_timer * 0.3)
+			if get_core_cooldown_remaining() > 0.0:
+				set_core_cooldown_remaining(max(0.0, get_core_cooldown_remaining() - get_core_cooldown_remaining() * 0.3))
 			if arms_cooldown_timer > 0.0:
 				arms_cooldown_timer = max(0.0, arms_cooldown_timer - arms_cooldown_timer * 0.3)
 			if legs_cooldown_timer > 0.0:
