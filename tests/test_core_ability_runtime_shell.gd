@@ -83,31 +83,43 @@ func test_runtime_shell() -> bool:
 		scene.queue_free()
 		return false
 		
-	# Verify calling activate() performs no legacy dispatch
-	player.current_energy = 100.0
-	player.core_cooldown_timer = 0.0
-	var durability_before_null_activation = player.barrier_durability
-	player.activate_core_ability()
-	if player.barrier_durability != durability_before_null_activation:
+	# Verify calling activate() performs no legacy dispatch when ability is null
+	var mock_owner = MockPlayer3D.new()
+	var standalone_runtime = CoreAbilityRuntime.new()
+	scene.add_child(mock_owner)
+	mock_owner.add_child(standalone_runtime)
+	
+	standalone_runtime.configure(null, mock_owner)
+	standalone_runtime.activate()
+	if mock_owner.legacy_dispatch_count != 0:
 		printerr("Legacy bridge was incorrectly triggered for null ability.")
 		scene.queue_free()
 		return false
 		
-	# 7. Activation delegates through temporary legacy bridge
-
-	# We'll re-apply TEST_BUILD_1, set energy/cooldown so it succeeds, and mock execute_core_effect_legacy or just observe state
-	player.apply_build(TEST_BUILD_1, "TEST1")
-	player.current_energy = 100.0
-	player.core_cooldown_timer = 0.0
+	# 7. Activation delegates through temporary legacy bridge for unhandled EffectType
+	var unhandled_ability = AbilityData.new()
+	unhandled_ability.effect_type = AbilityData.EffectType.BURST_VOLLEY # Arms ability, will not be handled by Core
 	
-	# Since execute_core_effect_legacy uses EffectType, we can see if it was triggered
-	# For Directional Barrier (effect_type 0), it sets barrier_durability
-	var start_durability = player.barrier_durability
-	player.activate_core_ability()
-	if player.barrier_durability == start_durability and TEST_BUILD_1.core.active_ability.effect_type == 0:
-		printerr("Legacy bridge was not triggered. Barrier durability did not change.")
+	standalone_runtime.configure(unhandled_ability, mock_owner)
+	standalone_runtime.activate()
+	
+	if mock_owner.legacy_dispatch_count != 1:
+		printerr("Legacy bridge was not triggered exactly once. Count: ", mock_owner.legacy_dispatch_count)
+		scene.queue_free()
+		return false
+		
+	if mock_owner.last_legacy_ability != unhandled_ability:
+		printerr("Legacy bridge received incorrect ability data.")
 		scene.queue_free()
 		return false
 		
 	scene.queue_free()
 	return true
+
+class MockPlayer3D extends CharacterBody3D:
+	var legacy_dispatch_count := 0
+	var last_legacy_ability: AbilityData = null
+
+	func execute_core_effect_legacy(ability: AbilityData) -> void:
+		legacy_dispatch_count += 1
+		last_legacy_ability = ability

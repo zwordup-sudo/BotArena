@@ -130,10 +130,6 @@ var rocket_lunge_timer: float = 0.0
 var rocket_lunge_direction: Vector3 = Vector3.ZERO
 var rocket_lunge_speed: float = 0.0
 
-# Directional Barrier active state parameters
-var barrier_node: Area3D = null
-var barrier_durability: int = 0
-
 # Ghost Buffer (Assassin Core)
 
 # Windup State tracking fields (Tank Lab 0.1)
@@ -298,10 +294,6 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 
 	is_winding_up = false
 	windup_timer = 0.0
-
-
-
-	
 	is_slam_winding_up = false
 	slam_windup_timer = 0.0
 	current_slam_ability_data = null
@@ -318,11 +310,7 @@ func apply_build(new_build: Resource, build_name: String) -> void:
 	vector_strafe_direction = Vector3.ZERO
 	vector_strafe_speed = 0.0
 	
-	if is_instance_valid(barrier_node):
-		barrier_node.queue_free()
-	barrier_node = null
-	barrier_durability = 0
-	
+
 	is_arms_active = false
 	arms_temp_fire_rate_multiplier = 1.0
 	arms_temp_projectile_damage_multiplier = 1.0
@@ -723,9 +711,7 @@ func execute_core_effect_legacy(ability: AbilityData) -> void:
 		dash_cooldown_timer = 0.0
 		
 	var effect_type = ability.effect_type
-	if effect_type == 0: # DIRECTIONAL_BARRIER
-		start_directional_barrier(ability)
-	elif effect_type == 1: # TEMPORARY_STAT_MODIFIER
+	if effect_type == 1: # TEMPORARY_STAT_MODIFIER
 		start_core_stat_modifier(ability)
 	elif effect_type == 2: # DAMAGE_REDUCTION
 		start_core_damage_reduction(ability)
@@ -862,74 +848,18 @@ func start_overwatch_matrix(ability: AbilityData) -> void:
 	update_mesh_color()
 	recalculate_stats()
 
-func start_directional_barrier(ability: AbilityData) -> void:
+func begin_legacy_core_duration(ability: AbilityData) -> void:
 	is_core_active = true
 	core_duration_timer = ability.duration
-	barrier_durability = ability.projectile_block_capacity
-	
-	# Dynamically instantiate front-facing barrier colliders under aim pivot
-	if not barrier_node:
-		barrier_node = Area3D.new()
-		barrier_node.name = "DirectionalBarrier"
-		barrier_node.collision_layer = 16
-		barrier_node.collision_mask = 8 # monitor Layer 4 (hostile projectile)
-		barrier_node.monitoring = true
-		barrier_node.monitorable = false
-		
-		# Set collision shape bounds matching frontal wall
-		var col = CollisionShape3D.new()
-		var box = BoxShape3D.new()
-		box.size = Vector3(2.5, 1.5, 0.2)
-		col.shape = box
-		barrier_node.add_child(col)
-		col.position = Vector3(0.0, 0.0, -1.2) # set in front of player model
-		
-		# Set clean visual standard shader block
-		var mesh_instance = MeshInstance3D.new()
-		var quad = BoxMesh.new()
-		quad.size = Vector3(2.5, 1.5, 0.05)
-		mesh_instance.mesh = quad
-		
-		var mat = StandardMaterial3D.new()
-		mat.albedo_color = Color(0.2, 0.6, 1.0, 0.4)
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mesh_instance.material_override = mat
-		
-		barrier_node.add_child(mesh_instance)
-		mesh_instance.position = Vector3(0.0, 0.0, -1.2)
-		
-		aim_pivot.add_child(barrier_node)
-		barrier_node.add_to_group("player_barrier")
-		barrier_node.area_entered.connect(_on_barrier_area_entered)
-		
 	update_mesh_color()
+	
+	if ability.refresh_dash_on_activate:
+		dash_cooldown_timer = 0.0
 
-func _on_barrier_area_entered(area: Area3D) -> void:
-	if not is_core_active or not bot_build or not bot_build.core:
-		return
-	if bot_build.core.active_ability.effect_type != 0: # DIRECTIONAL_BARRIER
-		return
-		
-	# Blocks hostile interceptable projectiles
-	if area.is_in_group("hostile_projectile") and area.get("can_be_intercepted") == true:
-		if area.get("is_consumed") == true:
-			return
-			
-		area.set("is_consumed", true)
-		
-		if area.has_method("take_interception_damage"):
-			area.take_interception_damage((area.get("interception_durability") as float) if area.get("interception_durability") != null else 1.0)
-		else:
-			if not area.is_queued_for_deletion():
-				area.queue_free()
-				
-		deduct_barrier_durability()
+func get_aim_pivot() -> Node3D:
+	return aim_pivot
 
-func deduct_barrier_durability() -> void:
-	barrier_durability -= 1
-	if barrier_durability <= 0:
-		end_core_ability()
+
 
 func start_core_stat_modifier(ability: AbilityData) -> void:
 	is_core_active = true
@@ -1029,12 +959,6 @@ func end_core_ability() -> void:
 
 	if is_instance_valid(core_ability_runtime) and core_ability_runtime.has_method("on_core_ability_ended"):
 		core_ability_runtime.on_core_ability_ended()
-	
-	# Clear barrier node
-	if is_instance_valid(barrier_node):
-		barrier_node.queue_free()
-	barrier_node = null
-	barrier_durability = 0
 	
 	update_mesh_color()
 	recalculate_stats()
@@ -1868,8 +1792,11 @@ func update_canvas_hud() -> void:
 			if ability:
 				var ab_name = ability.display_name.to_upper()
 				if is_core_active:
-					if ability.effect_type == 0: # DIRECTIONAL_BARRIER
-						core_status = "BARRIER - ACTIVE " + str(barrier_durability) + "/3"
+					if ability.effect_type == AbilityData.EffectType.DIRECTIONAL_BARRIER:
+						var b_dur = 0
+						if is_instance_valid(core_ability_runtime) and core_ability_runtime.has_method("get_barrier_durability"):
+							b_dur = core_ability_runtime.get_barrier_durability()
+						core_status = "BARRIER - ACTIVE " + str(b_dur) + "/3"
 					elif ability.effect_type == 9: # GHOST_BUFFER
 						core_status = "GHOST BUFFER - " + str(core_ability_runtime.get_projectile_absorb_charges() if is_instance_valid(core_ability_runtime) else 0) + "/2"
 					elif ability.effect_type == 12: # REACTIVE_PLATING

@@ -28,11 +28,12 @@ func run_test() -> bool:
 	
 	player.activate_core_ability()
 	await get_tree().process_frame
-	if not player.is_core_active or not is_instance_valid(player.barrier_node) or player.barrier_durability <= 0:
+	var aim_pivot = player.get_node_or_null("AimPivot")
+	var barrier_node = aim_pivot.get_node_or_null("DirectionalBarrier") if aim_pivot else null
+	if not player.is_core_active or not is_instance_valid(barrier_node) or player.core_ability_runtime.get_barrier_durability() <= 0:
 		print("FAILED: Directional Barrier activation failed")
 		return false
-	var aim_pivot = player.get_node_or_null("AimPivot")
-	if not aim_pivot or player.barrier_node.get_parent() != aim_pivot:
+	if not aim_pivot or barrier_node.get_parent() != aim_pivot:
 		print("FAILED: Directional Barrier not attached to AimPivot")
 		return false
 	print("Test 1 (Directional Barrier) PASS")
