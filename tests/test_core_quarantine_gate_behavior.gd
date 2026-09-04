@@ -35,7 +35,8 @@ func run_test() -> bool:
 	print("--- QUARANTINE GATE CHARACTERIZATION ---")
 	
 	# 1. SPAWN & TRANSFORM
-	player.start_quarantine_gate(quarantine_ability)
+	player.get_node("CoreAbilityRuntime").configure(quarantine_ability, player)
+	player.get_node("CoreAbilityRuntime").activate()
 	await get_tree().process_frame
 	
 	var gates = _get_gates()
@@ -70,7 +71,8 @@ func run_test() -> bool:
 	print("Gate exists after build swap? ", is_instance_valid(gate) and not gate.is_queued_for_deletion())
 	
 	# 5. RECAST CLEANUP
-	player.start_quarantine_gate(quarantine_ability)
+	player.get_node("CoreAbilityRuntime").configure(quarantine_ability, player)
+	player.get_node("CoreAbilityRuntime").activate()
 	await get_tree().process_frame
 	print("Old Gate exists after recast? ", is_instance_valid(gate) and not gate.is_queued_for_deletion())
 	
@@ -97,7 +99,8 @@ func run_test() -> bool:
 	# 7. NORMAL ENTERED / COMPROMISED / STAGGER
 	player.global_position = Vector3.ZERO
 	aim_pivot.global_transform.basis = Basis.looking_at(Vector3.FORWARD, Vector3.UP)
-	player.start_quarantine_gate(quarantine_ability)
+	player.get_node("CoreAbilityRuntime").configure(quarantine_ability, player)
+	player.get_node("CoreAbilityRuntime").activate()
 	await get_tree().process_frame
 	gate = _get_gates()[0]
 	
@@ -144,7 +147,8 @@ func run_test() -> bool:
 	await get_tree().process_frame
 	player2.global_position = Vector3(0, 0, 10)
 	player2.get_node("AimPivot").global_transform.basis = Basis.looking_at(Vector3.FORWARD, Vector3.UP)
-	player2.start_quarantine_gate(quarantine_ability)
+	player2.get_node("CoreAbilityRuntime").configure(quarantine_ability, player2)
+	player2.get_node("CoreAbilityRuntime").activate()
 	await get_tree().process_frame
 	var gate2 = null
 	for child in player.get_parent().get_children():
@@ -202,10 +206,10 @@ func run_test() -> bool:
 	await _test_isolated_discrete_relocation()
 
 	# Clean up
-	get_tree().root.remove_child(scene_root)
-	#scene_root.queue_free()
-	get_tree().free()
 	Engine.time_scale = 1.0
+	if is_instance_valid(scene_root):
+		scene_root.queue_free()
+	await get_tree().process_frame
 	
 	print("--- END CHARACTERIZATION ---")
 	return true
@@ -294,7 +298,8 @@ func _test_isolated_discrete_relocation():
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	
-	fresh_player.start_quarantine_gate(quarantine_ability)
+	fresh_player.get_node("CoreAbilityRuntime").configure(quarantine_ability, fresh_player)
+	fresh_player.get_node("CoreAbilityRuntime").activate()
 	await get_tree().physics_frame
 	
 	var gate = null
