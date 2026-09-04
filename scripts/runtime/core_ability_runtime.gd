@@ -122,6 +122,9 @@ func activate() -> void:
 	elif active_ability.effect_type == AbilityData.EffectType.DIRECTIONAL_BARRIER:
 		_activate_directional_barrier()
 		return
+	elif active_ability.effect_type == AbilityData.EffectType.QUARANTINE_GATE:
+		_activate_quarantine_gate()
+		return
 		
 	# Phase 2C-Q legacy effect dispatcher; effects migrate in Q2-Q4.
 	if owner_node.has_method("execute_core_effect_legacy"):
@@ -146,6 +149,31 @@ func _activate_ghost_buffer() -> void:
 func _activate_reactive_plating() -> void:
 	_reactive_plating_charges = active_ability.projectile_mitigation_charges
 	_reactive_plating_damage_multiplier = active_ability.projectile_damage_multiplier
+
+func _activate_quarantine_gate() -> void:
+	if owner_node.has_method("begin_legacy_core_duration"):
+		owner_node.begin_legacy_core_duration(active_ability)
+		
+	var parent = owner_node.get_parent()
+	if parent:
+		for child in parent.get_children():
+			if child is AptenQuarantineGate and child.owner_node == owner_node:
+				child.queue_free()
+				
+	var gate = load("res://scripts/apten_quarantine_gate.gd").new()
+	gate.owner_node = owner_node
+	gate.duration = active_ability.duration
+	
+	var aim_dir = Vector3.FORWARD
+	if owner_node.has_method("get_ability_aim_direction"):
+		aim_dir = owner_node.get_ability_aim_direction()
+		
+	if parent:
+		parent.add_child(gate)
+		
+	var target_pos = owner_node.global_position + aim_dir * 1.5
+	gate.global_position = target_pos
+	gate.look_at(target_pos + aim_dir, Vector3.UP)
 
 func _activate_directional_barrier() -> void:
 	if owner_node.has_method("begin_legacy_core_duration"):

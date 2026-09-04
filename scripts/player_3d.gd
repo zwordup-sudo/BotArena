@@ -719,10 +719,8 @@ func execute_core_effect_legacy(ability: AbilityData) -> void:
 		start_ghost_buffer(ability)
 	elif effect_type == 12: # REACTIVE_PLATING (Tank Core Survive)
 		start_reactive_plating(ability)
-	elif effect_type == 15: # OVERWATCH_MATRIX (Shooter Core Position)
+	elif effect_type == 15: # OVERWATCH_MATRIX
 		start_overwatch_matrix(ability)
-	elif effect_type == 18: # QUARANTINE_GATE
-		start_quarantine_gate(ability)
 	elif effect_type == 21: # BACKDOOR
 		execute_backdoor(ability)
 	elif effect_type == 24: # WATCHDOG_NODE
@@ -826,21 +824,10 @@ func execute_backdoor(ability: AbilityData) -> void:
 		
 	create_blink_visual(1.5)
 
-func start_quarantine_gate(ability: AbilityData) -> void:
-	is_core_active = true
-	core_duration_timer = ability.duration
-	for child in get_parent().get_children():
-		if child is AptenQuarantineGate and child.owner_node == self:
-			child.queue_free()
-	var gate = load("res://scripts/apten_quarantine_gate.gd").new()
-	gate.owner_node = self
-	gate.duration = ability.duration
+func get_ability_aim_direction() -> Vector3:
 	var aim_dir = -aim_pivot.global_transform.basis.z
 	aim_dir.y = 0.0
-	aim_dir = aim_dir.normalized()
-	get_parent().add_child(gate)
-	gate.global_position = global_position + aim_dir * 1.5
-	gate.look_at(gate.global_position + aim_dir, Vector3.UP)
+	return aim_dir.normalized()
 
 
 func start_overwatch_matrix(ability: AbilityData) -> void:
